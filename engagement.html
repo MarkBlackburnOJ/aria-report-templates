@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PNP Store Reports Engagement</title>
+<style>
+  :root{
+    --brand:#16539F; --brand-d:#0f3e78; --red:#E31E24; --green:#1E8E3E;
+    --ink:#1f2937; --mute:#6b7280; --soft:#9aa3af; --line:#e5e7eb;
+    --paper:#eef1f4; --card:#ffffff; --tint:#e7eef8;
+    --unopen:#fdecec; --unopen-line:#f5cccc;
+    --opened:#e9f7ee; --opened-line:#c7e8d2;
+    --radius:12px; --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 16px 60px;}
+  a{color:var(--brand)}
+
+  header.mast{background:var(--brand);color:#fff;border-radius:0 0 var(--radius) var(--radius);
+    padding:22px 24px;margin-bottom:14px;}
+  .mast h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px;}
+  .mast .eyebrow{font-size:11px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.66);}
+  .mast .sub{font-size:13px;color:rgba(255,255,255,.82);margin-top:5px;}
+
+  .asof{display:flex;align-items:center;gap:9px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;
+    border-radius:var(--radius);padding:11px 15px;margin-bottom:18px;font-size:13.5px;font-weight:600;}
+  .asof::before{content:"\1F553";font-size:15px;filter:grayscale(.1);}
+  .asof b{color:#7c2d12;}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+  .kpi{background:var(--card);border-radius:var(--radius);padding:15px 16px;border:1px solid var(--line);}
+  .kpi .v{font-size:27px;font-weight:700;line-height:1;color:var(--ink);}
+  .kpi .v small{font-size:15px;color:var(--soft);font-weight:600;}
+  .kpi .l{font-size:12px;color:var(--mute);margin-top:7px;}
+  .kpi .s{font-size:12px;color:var(--soft);margin-top:2px;}
+  .kpi.ok .v{color:var(--green)} .kpi.bad .v{color:var(--red)}
+
+  /* Visit breakdowns: KPI actions + the before-you-leave checklist (both reflect the active filters) */
+  .vx-sect + .vx-sect{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+  .vx-h{font-size:13px;font-weight:600;color:var(--ink);margin:0 0 4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .vx-h .sub{font-weight:400;color:var(--soft);font-size:12px;}
+  .vx-desc{font-size:12px;color:var(--mute);margin:0 0 11px;max-width:80ch;}
+  .vx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(114px,1fr));gap:10px;}
+  .vx-k{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--paper);}
+  .vx-k .v{font-size:21px;font-weight:700;line-height:1;color:var(--brand);}
+  .vx-k .l{font-size:11.5px;color:var(--mute);margin-top:5px;}
+  .vx-ck{display:flex;flex-direction:column;gap:8px;}
+  .vx-ck-row{display:grid;grid-template-columns:190px 1fr 138px;gap:12px;align-items:center;}
+  .vx-ck-lab{font-size:12.5px;color:var(--ink);}
+  .vx-bar{height:9px;border-radius:5px;background:#f3d7d8;overflow:hidden;}
+  .vx-bar > i{display:block;height:100%;background:var(--green);border-radius:5px;}
+  .vx-ck-n{font-size:11.5px;color:var(--soft);text-align:right;white-space:nowrap;}
+  .vx-ck-n b{color:var(--ink);font-weight:600;}
+  .vx-split{color:var(--soft);font-size:10.5px;font-weight:400;margin-top:3px;white-space:nowrap;}
+  @media(max-width:640px){ .vx-ck-row{grid-template-columns:130px 1fr;} .vx-ck-n{grid-column:1/-1;text-align:left;margin-top:-2px;} }
+  .vx-dtl-wrap{overflow-x:auto;}
+  .vx-dtl{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .vx-dtl th,.vx-dtl td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;}
+  .vx-dtl th{font-size:11px;color:var(--mute);font-weight:600;cursor:pointer;user-select:none;}
+  .vx-dtl th.num,.vx-dtl td.num{text-align:right;}
+  .vx-dtl th.sorted{color:var(--brand);}
+  .vx-dtl td b{color:var(--ink);font-weight:700;}
+  .vx-dtl tbody tr:hover{background:var(--paper);}
+  .vx-dtl-empty{color:var(--soft);text-align:center;padding:16px;}
+  .vxc-p{font-size:11px;font-weight:600;}
+  .vxc-g{color:var(--green);} .vxc-y{color:#b7791f;} .vxc-r{color:var(--red);}
+  .vx-kf{font-size:11px;color:var(--soft);margin-top:4px;}
+  .vx-kf b{color:var(--ink);font-weight:700;}
+
+  .panel{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:16px 18px;margin-bottom:18px;}
+  .panel h2{margin:0 0 12px;font-size:14px;font-weight:600;color:var(--ink);}
+  .panel h2 .hint{font-weight:400;color:var(--soft);font-size:12px;margin-left:6px;}
+
+  /* Every table carries a heading, a one-line description and its own CSV export. */
+  .tblhead{margin-bottom:12px;}
+  .tblhead h2{margin:0 0 3px;font-size:14px;font-weight:600;color:var(--ink);
+    display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .tblhead p{margin:0;font-size:12px;color:var(--mute);max-width:80ch;}
+  .csvbtn{font:inherit;font-size:11.5px;font-weight:600;color:var(--brand);background:var(--tint);
+    border:1px solid var(--line);border-radius:7px;padding:3px 10px;cursor:pointer;white-space:nowrap;
+    margin-left:auto;flex:none;}
+  .csvbtn:hover{background:#dbe6f5;border-color:var(--brand);}
+  .csvbtn:active{transform:translateY(1px);}
+  .vx-h .csvbtn{margin-left:auto;}
+
+  .trend{display:flex;align-items:flex-end;gap:5px;height:96px;padding-top:18px;}
+  .trend .bar{flex:1;min-width:6px;background:var(--brand);border-radius:3px 3px 0 0;position:relative;opacity:.9;
+    transition:opacity .12s;cursor:default;}
+  .trend .bar:hover{opacity:1;}
+  .trend .bar.empty{background:var(--line);}
+  .trend .bar.b-green{background:var(--green);}
+  .trend .bar.b-yellow{background:#E0A800;}
+  .trend .bar.b-red{background:var(--red);}
+  .trend .bar .blab{position:absolute;top:-16px;left:-3px;right:-3px;text-align:center;font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap;}
+  .trend-x{display:flex;gap:5px;margin-top:6px;}
+  .trend-x span{flex:1;text-align:center;font-size:10px;color:var(--soft);overflow:hidden;white-space:nowrap;}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap;}
+  .tab{background:none;border:none;font:inherit;font-size:14px;color:var(--mute);padding:9px 14px;cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tab.on{color:var(--brand);font-weight:600;border-bottom-color:var(--brand);}
+  .tab .c{color:var(--soft);font-weight:400;font-size:12px;}
+
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .toolbar input[type=search]#search{flex:1;min-width:170px;font:inherit;font-size:14px;padding:8px 12px;
+    border:1px solid var(--line);border-radius:8px;background:var(--paper);}
+  .toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--mute);cursor:pointer;
+    border:1px solid var(--line);border-radius:20px;padding:6px 13px;user-select:none;}
+  .toggle.on{background:#fdeaea;border-color:#f3c0c0;color:var(--red);}
+  .count{font-size:12px;color:var(--soft);margin-left:auto;}
+  .fclear{font-size:12px;color:var(--brand);cursor:pointer;text-decoration:none;white-space:nowrap;}
+  .fclear:hover{text-decoration:underline;}
+  .fclear[hidden]{display:none;}
+
+  .filterbar{padding-bottom:6px;position:sticky;top:0;z-index:50;box-shadow:0 6px 16px rgba(15,62,120,.10);}
+  .filterbar .tabs{margin-bottom:12px;}
+  .filterbar .toolbar{margin-bottom:2px;}
+
+  /* multi-select checkbox dropdown */
+  .ms{position:relative;display:inline-block;}
+  .ms-btn{font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--paper);color:var(--ink);cursor:pointer;white-space:nowrap;max-width:210px;
+    overflow:hidden;text-overflow:ellipsis;}
+  .ms-btn.active{border-color:var(--brand);color:var(--brand-d);background:var(--tint);font-weight:600;}
+  .ms-btn:disabled{opacity:.45;cursor:not-allowed;}
+  .ms-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:210px;max-width:300px;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(15,62,120,.16);
+    padding:8px;display:flex;flex-direction:column;gap:7px;}
+  .ms-panel[hidden]{display:none;}
+  .ms-search{font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--paper);}
+  .ms-actions{display:flex;gap:12px;font-size:12px;padding:0 2px;}
+  .ms-actions a{color:var(--brand);cursor:pointer;text-decoration:none;}
+  .ms-actions a:hover{text-decoration:underline;}
+  .ms-list{overflow-y:auto;max-height:240px;display:flex;flex-direction:column;}
+  .ms-opt{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink);}
+  .ms-opt:hover{background:var(--paper);}
+  .ms-opt input{margin:0;flex:none;}
+  .ms-opt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ms-empty{color:var(--soft);font-size:12px;padding:8px 6px;}
+
+  table{width:100%;border-collapse:collapse;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mute);font-weight:600;cursor:pointer;
+    white-space:nowrap;user-select:none;}
+  th.num,td.num{text-align:right;}
+  th .arr{color:var(--brand);}
+  td.scope{font-weight:600;}
+  td.scope a.rlink{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand);}
+  td.scope a.rlink:hover{border-bottom-style:solid;}
+  td.scope a.rlink .ext{color:var(--soft);font-weight:400;font-size:.9em;margin-left:2px;}
+  td.rec{color:var(--mute);font-size:12px;}
+  td.sname{color:var(--ink);}
+  .yes{color:var(--green);font-weight:700;}
+  .no{color:var(--red);font-weight:700;}
+  .dash{color:var(--soft);}
+  .role{font-size:11px;padding:2px 8px;border-radius:20px;border:0.5px solid var(--line);color:var(--mute);white-space:nowrap;}
+  .role-field{background:var(--tint);color:var(--brand-d);border-color:var(--brand);}
+  .role-internal{color:var(--soft);}
+  tbody tr:hover{background:#f8fafc;}
+  tbody tr.row-unopened{background:var(--unopen);}
+  tbody tr.row-unopened:hover{background:#fbe0e0;}
+  tbody tr.row-unopened td{border-bottom-color:var(--unopen-line);}
+  tbody tr.row-opened{background:var(--opened);}
+  tbody tr.row-opened:hover{background:#dff0e4;}
+  tbody tr.row-opened td{border-bottom-color:var(--opened-line);}
+  .empty-row td{color:var(--soft);text-align:center;padding:22px;font-size:13px;}
+
+  /* Reps matrix (rep x rolling dates) */
+  .ch{display:inline-block;padding:2px 7px;border-radius:6px;font-size:11.5px;font-weight:600;white-space:nowrap;}
+  .ch-red{background:#fdecec;color:#b42318;}
+  .ch-yellow{background:#fdf3d3;color:#7a5c00;}
+  .ch-green{background:#e3f5ea;color:#12703a;}
+  #tblwrap.scrollbox{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:8px;}
+  table.matrix td{white-space:nowrap;}
+  table.matrix td.num,table.matrix th.num{text-align:center;}
+  table.matrix thead th{position:sticky;background:var(--card);z-index:3;}
+  table.matrix thead tr:first-child th{top:0;height:34px;}
+  table.matrix thead tr.mx-total th{top:34px;background:var(--tint);color:var(--brand-d);font-weight:600;z-index:2;}
+  table.matrix th.mx-rep,table.matrix td.mx-rep{position:sticky;left:0;background:var(--card);z-index:1;font-weight:600;min-width:150px;border-right:1px solid var(--line);}
+  table.matrix thead tr:first-child th.mx-rep{z-index:4;}
+  table.matrix thead tr.mx-total th.mx-rep{z-index:3;background:var(--tint);}
+  table.matrix th.mx-t,table.matrix td.mx-t{background:#f7faff;}
+  table.matrix thead tr.mx-total th.mx-t{background:#dbe6f5;}
+  table.matrix .mx-sep{border-right:2px solid var(--line);}
+
+  footer{color:var(--mute);font-size:12px;line-height:1.6;margin-top:8px;}
+  footer b{color:var(--ink);font-weight:600;}
+  .gloss{font-size:12px;color:var(--mute);}
+  .gloss code{background:var(--tint);color:var(--brand-d);padding:1px 5px;border-radius:4px;font-size:11px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">Store reports</div>
+    <h1>PNP Store Reports Engagement</h1>
+    <div class="sub" id="sub"></div>
+  </header>
+
+  <div class="asof" id="asof"></div>
+
+  <div class="panel filterbar">
+    <div class="tabs" id="tabs"></div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search store, store name or recipient…" autocomplete="off">
+      <span class="ms-host" id="msDate"></span>
+      <span class="ms-host" id="msScope"></span>
+      <span class="ms-host" id="msName"></span>
+      <span class="ms-host" id="msSub"></span>
+      <span class="ms-host" id="msRecip"></span>
+      <span class="ms-host" id="msDomain"></span>
+      <span class="toggle" id="unopened"><span>Unopened only</span></span>
+      <a class="fclear" id="fclear" hidden>Clear filters</a>
+      <span class="count" id="rowcount"></span>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel" id="vxPanel" hidden></div>
+
+  <div class="panel" id="trendPanel">
+    <h2>Open rate <span class="hint" id="trendHint"></span></h2>
+    <div class="trend" id="trend"></div>
+    <div class="trend-x" id="trendX"></div>
+  </div>
+
+  <div class="panel">
+    <div class="tblhead" id="tblhead"></div>
+    <div id="tblwrap">
+      <table id="tbl">
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <div class="gloss">
+      <b>What “opened” means:</b> the report page loaded in the recipient’s browser and fired its tracking beacon.
+      A report opened on several devices counts once. Email preview panes or blocked images can make a real open go
+      uncounted, so treat the rate as a floor. The <b>KPI cards and every table reflect the active filters</b>, and
+      filters stay applied as you move between tabs; unopened rows are tinted red.
+      <b>Published reports are pruned after a day or two</b>, so only the most recent rows carry a
+      <b>link to the live report</b> &mdash; older ones show the store as plain text. Opening a report from here
+      <b>won&rsquo;t count as an open</b>. Times are <b>SAST</b>. Source: <code>dbo.vReportEngagement</code>.
+    </div>
+    <div id="gen" style="margin-top:10px;"></div>
+  </footer>
+</div>
+
+<script>
+const DATA = __PAYLOAD__;
+
+(function(){
+  const $ = id => document.getElementById(id);
+  const esc = s => (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const pct = (o,s) => s>0 ? Math.round(o*100/s) : 0;
+  const fmtMins = m => m==null ? '' : (m<60 ? m+'m' : Math.floor(m/60)+'h '+(m%60)+'m');
+  const domainOf = e => { const i=(e||'').lastIndexOf('@'); return i>=0 ? e.slice(i+1).toLowerCase() : ''; };
+
+  // ---- header ----
+  $('sub').textContent = DATA.meta.windowLabel || '';
+  $('asof').innerHTML = 'Snapshot as of <b>' + esc(DATA.meta.generated) + ' (SAST)</b> &mdash; report opens are counted up to this moment.';
+  $('gen').innerHTML = 'Generated ' + esc(DATA.meta.generated) + ' &middot; ARIA ' + esc(DATA.meta.version);
+
+  // ---- CSV export --------------------------------------------------------------------------------
+  // Built from the MODEL rows, never scraped from the DOM: most cells are composite HTML (chiclets,
+  // progress bars, sub-lines) and a textContent scrape yields garbage. Exports exactly what is on
+  // screen — current filters, current sort. UTF-8 BOM + every field quoted so Excel opens store codes
+  // and "dd MMM HH:mm" strings as text instead of mangling them into dates.
+  function toCsv(header, rows){
+    const q = v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+    // U+FEFF written as an escape, not a literal BOM character: an invisible leading char in the source is
+    // too easy for an editor or a copy-paste to eat, and losing it makes Excel mis-read accented
+    // store names without anything looking wrong here.
+    return '\uFEFF' + [header].concat(rows).map(r=>r.map(q).join(',')).join('\r\n');
+  }
+  function downloadCsv(name, header, rows){
+    const blob = new Blob([toCsv(header, rows)], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url), 0);
+  }
+  const stamp = () => (DATA.meta.generated||'').replace(/[^0-9]/g,'').slice(0,8) || 'export';
+  const csvBtn = key => `<button type="button" class="csvbtn" data-csv="${key}" title="Download this table as CSV (current filters and sort)">Export CSV</button>`;
+  // Every exportable table registers its [filename, header[], rows[][]] builder here.
+  const CSV = {};
+  document.addEventListener('click', e=>{
+    const b = e.target.closest('[data-csv]');
+    if(!b) return;
+    const f = CSV[b.getAttribute('data-csv')];
+    if(!f) return;
+    const {name, header, rows} = f();
+    downloadCsv(`${name}-${stamp()}.csv`, header, rows);
+  });
+
+  // ---- trend chart: open-rate per day, computed from the CURRENTLY FILTERED data of the active tab,
+  //      colour-banded like the chiclets, with a % data label on each bar. Rendered from render(). ----
+  function trendData(){
+    if(isVisitTab()) return [];                      // visit tabs aren't about opens — no trend
+    if(tab==='repmx'){
+      const m = repMatrix();
+      return m.dates.map(d=>{ let o=0,s=0; m.reps.forEach(rp=>{ const c=m.cell[rp][d]; if(c){o+=c[0];s+=c[1];} }); return [isoLabel(d), s, o]; });
+    }
+    const map={};
+    filteredRows().forEach(r=>{ const d=dateOf(r.sent); if(!d) return; const e=map[d]||(map[d]=[0,0]); e[0]++; if(r.opened)e[1]++; });
+    return Object.keys(map).sort((a,b)=>dkey(a)-dkey(b)).map(d=>[d, map[d][0], map[d][1]]);   // [label, sent, opened]
+  }
+  function renderTrend(){
+    const data = trendData();
+    $('trendHint').textContent = data.length ? `${data.length} day${data.length===1?'':'s'} · reflects filters` : '';
+    const rate = d => d[1]>0 ? Math.round(d[2]*100/d[1]) : 0;
+    const maxRate = Math.max(10, ...data.map(rate));
+    $('trend').innerHTML = data.map(d=>{
+      const p = rate(d);
+      const h = d[1]===0 ? 3 : Math.max(8, Math.round(p/maxRate*100));
+      const band = d[1]===0 ? 'empty' : p>=90 ? 'b-green' : p>=60 ? 'b-yellow' : 'b-red';
+      return `<div class="bar ${band}" style="height:${h}%" title="${d[0]}: ${d[2]}/${d[1]} opened (${p}%)"><span class="blab">${d[1]?p+'%':''}</span></div>`;
+    }).join('');
+    $('trendX').innerHTML = data.map(d=>`<span>${d[0]}</span>`).join('');
+  }
+
+  // ---- tabs -------------------------------------------------------------------------------------
+  // Adding or removing a tab means touching every dispatch point below, and several fail SILENTLY if
+  // missed: KINDS, TABDOC, the tab-count switch, sourceRows(), renderKpis()'s chain (its else is the
+  // Detail fallback), render()'s chain, and the two visit-tab guards (isVisitTab covers both now).
+  const KINDS = [
+    {key:'store',  label:'Detail',      cols:['scope','name','rec','role','sent','opened','first','mins'], head:['Store','Store name','Recipient','Role','Sent','Opened','First open','To open']},
+    {key:'repmx',  label:'Reps',        cols:[], head:[]},
+    {key:'reps',   label:'Reps / store',cols:['store','name','reps','reports','opened','openpct'],    head:['Store','Store name','Reps','Reports','Opened','Open %']},
+    {key:'vxkpi',  label:'KPI Actions', cols:['scope','name','rec','date','actions'],           head:['Store','Store name','Rep','Date','Items done']},
+    {key:'vxchk',  label:'Visit Compliance', cols:['scope','name','rec','date','check','notdone'], head:['Store','Store name','Rep','Date','Checklist','Not done']},
+  ];
+  const isVisitTab = () => tab==='vxkpi' || tab==='vxchk';
+
+  // Heading + description for the main table on each tab. Every table on the page has both.
+  const TABDOC = {
+    store: ['Reports sent, and who opened them',
+      'One row per report copy sent to one person. A store visit produces a copy for the rep and a shared copy for managers, so the same store appears more than once. “Opened” means that person’s copy fired its beacon.'],
+    repmx: ['Rep open rate by day',
+      'Each rep against each day in the window. A cell shows opened / sent and the resulting rate, colour-banded green at 90% and above, red below 60%. The totals block on the left is sortable independently of the day columns.'],
+    reps: ['Store coverage and open rate',
+      'One row per store, aggregated from the rows on the Detail tab. “Reps” counts the distinct field recipients who were sent that store’s report — internal reviewer copies are excluded.'],
+    vxkpi: ['KPI actions completed per visit',
+      'One row per store visit, showing how many action-card items the rep ticked off. Hover the total for the split by KPI. Only visits that reported feedback appear here.'],
+    vxchk: ['Before-you-leave checklist per visit',
+      'One row per store visit, showing how the rep answered the non-negotiables they were shown. “Checklist” is completed ÷ items presented; “Not done” lists what was explicitly flagged, with the reason where one was given.'],
+  };
+
+  // reports row = [kind, scope, recipient, opened, sentSast, firstOpenSast, mins, role, url,
+  //                storeName, subChannel]
+  // Client/account rows stopped being emitted 2026-08-05 when the Clients + Accounts tab was removed;
+  // rowsByKind still buckets by kind so an older engine's rows land somewhere harmless rather than
+  // being mistaken for store rows.
+  const rowsByKind = {store:[]};
+  (DATA.reports||[]).forEach(r=>{
+    (rowsByKind[r[0]]||(rowsByKind[r[0]]=[])).push({
+      scope:r[1]||'', rec:r[2]||'', opened:r[3]===1,
+      sent:r[4]||'', first:r[5]||'', mins:r[6], role:r[7]||'', url:r[8]||'',
+      name:r[9]||'', sub:r[10]||''
+    });
+  });
+
+  // ---- store lookup: code -> {name, sub} -------------------------------------------------------
+  // The visit rows carry a store CODE only. Rather than widen the payload contract, resolve the name
+  // and sub-channel from the report rows already present. Covers any store that also had a report in
+  // the window, which at a 21-day window is effectively all of them; anything unresolved stays blank
+  // and the column self-hides (below) rather than rendering a column of gaps.
+  const storeMeta = {};
+  (rowsByKind.store||[]).forEach(r=>{
+    if(!r.scope) return;
+    const m = storeMeta[r.scope] || (storeMeta[r.scope] = {name:'', sub:''});
+    if(!m.name && r.name) m.name = r.name;
+    if(!m.sub  && r.sub)  m.sub  = r.sub;
+  });
+  const nameOf = code => (storeMeta[code] && storeMeta[code].name) || '';
+  const subOf  = code => (storeMeta[code] && storeMeta[code].sub)  || '';
+
+  // rep -> the stores they were sent reports for. Lets the store/name/sub filters reach the Reps
+  // matrix, whose own payload (repDaily) has no store dimension at all.
+  const repStores = {};
+  (rowsByKind.store||[]).forEach(r=>{
+    if(!r.rec || !r.scope) return;
+    (repStores[r.rec] || (repStores[r.rec] = new Set())).add(r.scope);
+  });
+
+  // Store name arrived with the 2026-08-04 view change. An engine still running against the older view
+  // sends 9-element rows, so rather than show a column of blanks until the next deploy, drop the column
+  // entirely when nothing carries a name. Same idea as the sub-channel control disabling itself.
+  const HAS_NAMES = (rowsByKind.store||[]).some(r=>r.name);
+  if(!HAS_NAMES){
+    KINDS.forEach(k=>{
+      const i=k.cols.indexOf('name');
+      if(i>=0){ k.cols.splice(i,1); k.head.splice(i,1); }
+    });
+  }
+
+  // ---- Visit rows: per-store-visit checklist + action-card check-offs --------------------------
+  // visits row = [store, rep, iso-date, done, answered, notDone, notDoneItems, notDoneReasons,
+  //               actionItems, kpiDone[6], doneItems, kpiFlagged[5], presentedItems]  (13 elements)
+  const CHK_LABELS = { walk:'Store walk', soh:'SOH check', shelf:'Shelf fill/face/rotate', price:'Pricing & promo',
+    nosale:'No-sales actioned', order:'Order placed', blocked:'Blocked lines opened', plano:'Planogram executed',
+    space:'Secondary space', photo:'Photos taken', mgr:'Manager aligned', upload:'Uploads same-day' };
+  const chkLabels = s => String(s||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>CHK_LABELS[x]||x).join(', ');
+  // "order: buyer away  |  blocked: line inactive" -> "Order placed: buyer away · Blocked lines opened: line inactive"
+  const prettyReasons = s => String(s||'').split('|').map(x=>x.trim()).filter(Boolean).map(x=>{
+    const i=x.indexOf(':'); if(i<0) return x; const id=x.slice(0,i).trim(); return (CHK_LABELS[id]||id)+': '+x.slice(i+1).trim();
+  }).join(' · ');
+  // kpi = [oos, low_cover, phantom, negative, discontinued, other] completed counts; doneItems = checklist items done.
+  const VKPI = [ {i:0,label:'Out of stock',ab:'OOS'}, {i:1,label:'Low cover',ab:'LC'},
+                 {i:2,label:'Phantom',ab:'Ph'}, {i:3,label:'Negative',ab:'Neg'}, {i:4,label:'Discontinued',ab:'Disc'} ];
+  const CHK_ORDER = ['walk','soh','shelf','price','nosale','order','blocked','plano','space','photo','mgr','upload'];
+  const csvSet = s => new Set(String(s||'').split(',').map(x=>x.trim()).filter(Boolean));
+  const visitRows = (DATA.visits||[]).map(v=>{
+    const done=+v[3]||0, answered=+v[4]||0;
+    // pset = the checklist items the visit actually PRESENTED (v[12]); its size is the completion denominator.
+    // Empty = pre-feature / non-PNP report → no honest %, we fall back to raw counts instead of done÷answered.
+    const pset=csvSet(v[12]), pc=pset.size;
+    const code=v[0]||'';
+    return {
+      scope:code, name:nameOf(code), sub:subOf(code),
+      rec:v[1]||'', date:v[2]||'', done:done, answered:answered,
+      notdone:+v[5]||0, notdoneitems:v[6]||'', notdonereasons:v[7]||'', actions:+v[8]||0,
+      kpi: (Array.isArray(v[9])?v[9]:[]).map(n=>+n||0).concat([0,0,0,0,0,0]).slice(0,6),
+      doneitems: v[10]||'',
+      // per-KPI "to-do" denominator [oos,low,phantom,neg,disc]; each null when the report pre-dates the feature
+      kpif: (function(){ const a=Array.isArray(v[11])?v[11]:[]; return [0,1,2,3,4].map(i=> (i<a.length && a[i]!=null) ? (+a[i]||0) : null); })(),
+      pset:pset, presented:pc,
+      unanswered: pc>0 ? Math.max(0, pc-answered) : 0,           // items shown but never answered (count as not-done)
+      pct: pc>0 ? Math.min(100, Math.round(done*100/pc)) : -1     // Completed ÷ items presented; -1 = no denominator
+    };
+  });
+
+  // ---- filter state ----
+  let tab = 'store', sortCol = null, sortDir = 1, query = '';
+  let unopenedOnly = false;
+
+  // ---- multi-select checkbox dropdown ----
+  const MSes = [];
+  function closeAll(){ MSes.forEach(p=>{ p.hidden = true; }); }
+  document.addEventListener('click', closeAll);
+
+  function MultiSelect(host, allLabel, opts){
+    opts = opts || {};
+    const state = { values:[], sel:new Set(), all:allLabel, onChange:opts.onChange||(()=>{}) };
+    const wrap = document.createElement('div'); wrap.className = 'ms';
+    const btn = document.createElement('button'); btn.type='button'; btn.className='ms-btn';
+    const panel = document.createElement('div'); panel.className='ms-panel'; panel.hidden=true;
+    let search=null;
+    if(opts.searchable){ search=document.createElement('input'); search.type='search'; search.className='ms-search'; search.placeholder='Search…'; panel.appendChild(search); }
+    const actions=document.createElement('div'); actions.className='ms-actions';
+    const aAll=document.createElement('a'); aAll.textContent='Select all';
+    const aClear=document.createElement('a'); aClear.textContent='Clear';
+    actions.append(aAll,aClear); panel.appendChild(actions);
+    const list=document.createElement('div'); list.className='ms-list'; panel.appendChild(list);
+    wrap.append(btn,panel); host.appendChild(wrap);
+    MSes.push(panel);
+
+    function label(){
+      const n=state.sel.size;
+      btn.textContent = (n===0 ? state.all : n+' selected') + '  ▾';
+      btn.classList.toggle('active', n>0);
+    }
+    function draw(){
+      const q=(search && search.value || '').toLowerCase();
+      const vis=state.values.filter(v=>!q || v.toLowerCase().includes(q));
+      if(vis.length===0){ list.innerHTML='<div class="ms-empty">No matches</div>'; return; }
+      list.innerHTML='';
+      vis.forEach(v=>{
+        const row=document.createElement('label'); row.className='ms-opt';
+        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=state.sel.has(v);
+        cb.onchange=()=>{ if(cb.checked) state.sel.add(v); else state.sel.delete(v); label(); state.onChange(); };
+        const sp=document.createElement('span'); sp.textContent=v;
+        row.append(cb,sp); list.appendChild(row);
+      });
+    }
+    btn.onclick=e=>{ e.stopPropagation(); const willOpen=panel.hidden; closeAll(); panel.hidden=!willOpen; if(!panel.hidden){ draw(); if(search) search.focus(); } };
+    panel.onclick=e=>e.stopPropagation();
+    if(search) search.oninput=draw;
+    aAll.onclick=()=>{ const q=(search&&search.value||'').toLowerCase(); state.values.filter(v=>!q||v.toLowerCase().includes(q)).forEach(v=>state.sel.add(v)); draw(); label(); state.onChange(); };
+    aClear.onclick=()=>{ state.sel.clear(); draw(); label(); state.onChange(); };
+
+    return {
+      // Option lists are built ONCE from every tab's data (see below), so set() runs at startup only.
+      // It deliberately does NOT clear the selection: wiping selections on tab change was what made
+      // filters appear not to carry across tabs.
+      set(values, allLabel){ state.values=values; if(allLabel) state.all=allLabel; label(); if(!panel.hidden) draw(); },
+      selected(){ return state.sel; },
+      clear(){ state.sel.clear(); label(); if(!panel.hidden) draw(); },
+      enable(on){ btn.disabled = !on; btn.title = on ? '' : 'Not available on this tab'; },
+      count(){ return state.sel.size; }
+    };
+  }
+
+  const msDate  = MultiSelect($('msDate'),  'All dates',      {onChange:render});
+  const msScope = MultiSelect($('msScope'), 'All stores',     {searchable:true, onChange:render});
+  const msName  = MultiSelect($('msName'),  'All store names',{searchable:true, onChange:render});
+  const msRecip = MultiSelect($('msRecip'), 'All recipients', {searchable:true, onChange:render});
+  const msDomain= MultiSelect($('msDomain'),'All domains',    {onChange:render});
+  // Retail sub-channel (CORP / FRANCHISE / FRANCHISE-EXPRESS / HYPER / …).
+  const msSub   = MultiSelect($('msSub'),   'All sub-channels',{onChange:render});
+
+  // ---- ONE global option list per filter, built from every tab's data --------------------------
+  // Previously these were rebuilt per tab, which both changed the available options underfoot and
+  // wiped the selection. Building the union once means a selection stays valid — and stays applied —
+  // on every tab.
+  // Declared, not invoked here: it reads dateOf / isoLabel / dkey, which are consts defined further
+  // down and are in the temporal dead zone at this point. Called at the very bottom, like the
+  // per-tab rebuild it replaces.
+  function buildFilters(){
+    const uniq = a => [...new Set(a.filter(Boolean))];
+    const srows = rowsByKind.store||[];
+    const rd    = DATA.repDaily||[];
+
+    const dates = uniq([].concat(
+      srows.map(r=>dateOf(r.sent)),
+      visitRows.map(v=>isoLabel(v.date)),
+      rd.map(x=>isoLabel(x[1]))
+    )).sort((a,b)=>dkey(b)-dkey(a));
+
+    const stores = uniq([].concat(srows.map(r=>r.scope), visitRows.map(v=>v.scope))).sort();
+    const names  = uniq([].concat(srows.map(r=>r.name),  visitRows.map(v=>v.name))).sort();
+    const subs   = uniq([].concat(srows.map(r=>r.sub),   visitRows.map(v=>v.sub))).sort();
+    const recs   = uniq([].concat(srows.map(r=>r.rec),   visitRows.map(v=>v.rec), rd.map(x=>x[0]))).sort();
+    const doms   = uniq(recs.map(domainOf)).sort();
+
+    msDate.set(dates,'All dates');
+    msScope.set(stores,'All stores');
+    msName.set(names,'All store names');
+    msSub.set(subs,'All sub-channels');
+    msRecip.set(recs,'All recipients');
+    msDomain.set(doms,'All domains');
+    if(!names.length) $('msName').style.display='none';
+    if(!subs.length)  $('msSub').style.display='none';
+  }
+
+  function anyFilter(){
+    return !!query || unopenedOnly || msDate.count() || msScope.count() || msName.count()
+        || msSub.count() || msRecip.count() || msDomain.count();
+  }
+  $('fclear').onclick = ()=>{
+    query=''; $('search').value='';
+    unopenedOnly=false; $('unopened').classList.remove('on');
+    [msDate,msScope,msName,msSub,msRecip,msDomain].forEach(m=>m.clear());
+    render();
+  };
+
+  // ---- filtering -------------------------------------------------------------------------------
+  function sourceRows(){
+    if(tab==='reps') return rowsByKind.store||[];
+    return rowsByKind[tab]||[];
+  }
+
+  function passesF(r, useScope){
+    const d=msDate.selected(), s=msScope.selected(), nm=msName.selected(),
+          rc=msRecip.selected(), dm=msDomain.selected(), sb=msSub.selected();
+    if(d.size  && !d.has(dateOf(r.sent))) return false;
+    if(useScope && s.size && !s.has(r.scope)) return false;
+    if(nm.size && !nm.has(r.name||'')) return false;
+    if(sb.size && !sb.has(r.sub||'')) return false;
+    if(rc.size && !rc.has(r.rec)) return false;
+    if(dm.size && !dm.has(domainOf(r.rec))) return false;
+    if(unopenedOnly && r.opened) return false;
+    // search reaches the store NAME too — "promenade" finds WC33 without knowing the code
+    if(query){ const q=query.toLowerCase(); if(!((r.scope+' '+r.name+' '+r.rec).toLowerCase().includes(q))) return false; }
+    return true;
+  }
+  function passes(r){ return passesF(r, true); }   // scope multi-select applies to the table only
+  function filteredRows(){ return sourceRows().filter(passes); }
+
+  // Visit tabs honour every control the visit data can support. Store name and sub-channel work here
+  // because they were resolved from storeMeta above. "Unopened only" is about report opens and has no
+  // meaning for a visit, so it is disabled rather than silently ignored.
+  function visitFiltered(){
+    const rq=query.toLowerCase(), rc=msRecip.selected(), dm=msDomain.selected(),
+          ds=msDate.selected(), sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected();
+    return visitRows.filter(v=>{
+      if(rc.size && !rc.has(v.rec)) return false;
+      if(dm.size && !dm.has(domainOf(v.rec))) return false;
+      if(ds.size && !ds.has(isoLabel(v.date))) return false;
+      if(sc.size && !sc.has(v.scope)) return false;
+      if(nm.size && !nm.has(v.name||'')) return false;
+      if(sb.size && !sb.has(v.sub||'')) return false;
+      if(query && !((v.scope+' '+v.name+' '+v.rec).toLowerCase().includes(rq))) return false;
+      return true;
+    });
+  }
+
+  // Reps / store: group the (filtered) store rows by store → distinct field recipients + report/open counts.
+  function repsAgg(rows){
+    const m=new Map();
+    rows.forEach(r=>{
+      const s=r.scope||'—'; let o=m.get(s);
+      if(!o){ o={store:s, name:r.name||'', reps:new Set(), reports:0, opened:0}; m.set(s,o); }
+      if(!o.name && r.name) o.name=r.name;
+      o.reports++; if(r.opened) o.opened++;
+      if(r.role==='field' && r.rec) o.reps.add(r.rec);
+    });
+    return [...m.values()].map(o=>({store:o.store, name:o.name, reps:o.reps.size, reports:o.reports, opened:o.opened, openpct:pct(o.opened,o.reports)}));
+  }
+
+  // ---- Reps matrix (distinct reps x rolling dates; cell = opened/sent + %, colour-banded) ----
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const isoLabel = iso => { const p=String(iso).split('-'); return p.length===3 ? p[2]+' '+(MONTHS[(+p[1])-1]||'') : String(iso); };
+  const chiclet = (o,s) => { if(!s) return '<span class="dash">—</span>'; const p=Math.round(o*100/s); const cls=p>=90?'ch-green':p>=60?'ch-yellow':'ch-red'; return `<span class="ch ${cls}">${o}/${s} · ${p}%</span>`; };
+  const bandPct = (o,s) => s>0 ? o/s : -1;   // reps/cells with nothing sent sink to the bottom on sort
+
+  function repMatrix(){
+    const rq=query.toLowerCase(), rc=msRecip.selected(), dm=msDomain.selected(), ds=msDate.selected(),
+          sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected();
+    // repDaily has no store dimension. Bridge through repStores so the store / store-name / sub-channel
+    // filters still mean something here: keep a rep if ANY store they were sent a report for matches.
+    const storeFilterOn = sc.size || nm.size || sb.size;
+    const repMatchesStore = rep => {
+      const set = repStores[rep];
+      if(!set) return false;
+      for(const code of set){
+        if(sc.size && !sc.has(code)) continue;
+        if(nm.size && !nm.has(nameOf(code))) continue;
+        if(sb.size && !sb.has(subOf(code)))  continue;
+        return true;
+      }
+      return false;
+    };
+    const src=(DATA.repDaily||[]).filter(x=>{
+      const rep=x[0];
+      if(rc.size && !rc.has(rep)) return false;
+      if(dm.size && !dm.has(domainOf(rep))) return false;
+      if(ds.size && !ds.has(isoLabel(x[1]))) return false;
+      if(rq && !rep.toLowerCase().includes(rq)) return false;
+      if(storeFilterOn && !repMatchesStore(rep)) return false;
+      return true;
+    });
+    const dates=[...new Set(src.map(x=>x[1]))].sort();       // iso ascending → oldest to newest, left to right
+    const reps =[...new Set(src.map(x=>x[0]))];
+    const cell={};                                            // rep -> iso -> [opened, sent]
+    src.forEach(x=>{ (cell[x[0]]=cell[x[0]]||{})[x[1]]=[x[3], x[2]]; });
+    const total={};                                          // rep -> [opened, sent]
+    reps.forEach(rp=>{ let o=0,s=0; dates.forEach(d=>{ const c=cell[rp][d]; if(c){o+=c[0];s+=c[1];} }); total[rp]=[o,s]; });
+    return {dates, reps, cell, total};
+  }
+
+  function renderRepKpis(reps, total){
+    let o=0,s=0,g=0,y=0,rd=0;
+    reps.forEach(rp=>{ const t=total[rp]; o+=t[0]; s+=t[1]; if(t[1]>0){ const p=Math.round(t[0]*100/t[1]); if(p>=90)g++; else if(p>=60)y++; else rd++; } });
+    const cards=[
+      ['', 'Reps', reps.length, 'in view'],
+      ['', 'Open rate', s?Math.round(o*100/s)+'%':'–', o+' / '+s],
+      ['ok', '≥ 90%', g, 'reps'],
+      ['', '60–90%', y, 'reps'],
+      ['bad', '< 60%', rd, 'reps'],
+    ];
+    $('kpis').innerHTML = cards.map(c=>`<div class="kpi ${c[0]}"><div class="v">${c[2]}</div><div class="l">${c[1]}</div><div class="s">${c[3]||''}</div></div>`).join('');
+  }
+
+  function renderRepMatrix(){
+    const {dates, reps, cell, total} = repMatrix();
+    renderRepKpis(reps, total);
+    const arr = c => sortCol===c ? `<span class="arr">${sortDir>0?'▲':'▼'}</span>` : '';
+    const alpha = (a,b)=>a.toLowerCase()<b.toLowerCase()?-1:a.toLowerCase()>b.toLowerCase()?1:0;
+    let list=reps.slice();
+    if(sortCol==='rep')          list.sort((a,b)=>alpha(a,b)*sortDir);
+    else if(sortCol==='topened') list.sort((a,b)=>(total[a][0]-total[b][0])*sortDir);
+    else if(sortCol==='tsent')   list.sort((a,b)=>(total[a][1]-total[b][1])*sortDir);
+    else if(sortCol==='topct')   list.sort((a,b)=>(bandPct(total[a][0],total[a][1])-bandPct(total[b][0],total[b][1]))*sortDir);
+    else if(sortCol)             list.sort((a,b)=>{ const ca=cell[a][sortCol], cb=cell[b][sortCol]; return ((ca?bandPct(ca[0],ca[1]):-1)-(cb?bandPct(cb[0],cb[1]):-1))*sortDir; });
+    else                         list.sort(alpha);
+
+    // Totals (Opened · Sent · Open %) sit on the far left, right after Rep — each independently sortable — then the date columns.
+    const head = '<tr><th class="mx-rep" data-c="rep">Rep '+arr('rep')+'</th>'
+      + `<th class="num mx-t" data-c="topened">Opened ${arr('topened')}</th>`
+      + `<th class="num mx-t" data-c="tsent">Sent ${arr('tsent')}</th>`
+      + `<th class="num mx-t mx-sep" data-c="topct">Open % ${arr('topct')}</th>`
+      + dates.map(d=>`<th class="num" data-c="${d}">${isoLabel(d)} ${arr(d)}</th>`).join('')
+      + '</tr>';
+    let go=0, gs=0;
+    reps.forEach(rp=>{ go+=total[rp][0]; gs+=total[rp][1]; });
+    const totCells = dates.map(d=>{ let o=0,s=0; reps.forEach(rp=>{ const c=cell[rp][d]; if(c){o+=c[0];s+=c[1];} }); return `<th class="num">${chiclet(o,s)}</th>`; }).join('');
+    const totRow = '<tr class="mx-total"><th class="mx-rep">All reps</th>'
+      + `<th class="num mx-t">${go}</th><th class="num mx-t">${gs}</th><th class="num mx-t mx-sep">${chiclet(go,gs)}</th>`
+      + totCells + '</tr>';
+    $('thead').innerHTML = head + totRow;
+    bindSort();
+
+    if(list.length===0){
+      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${dates.length+4}">No rep data in range.</td></tr>`;
+    } else {
+      $('tbody').innerHTML = list.map(rp=>{
+        const t=total[rp];
+        const tds=dates.map(d=>{ const c=cell[rp][d]; return `<td class="num">${c?chiclet(c[0],c[1]):'<span class="dash">—</span>'}</td>`; }).join('');
+        return '<tr><td class="mx-rep"></td>'
+          + `<td class="num mx-t">${t[0]}</td><td class="num mx-t">${t[1]}</td><td class="num mx-t mx-sep">${chiclet(t[0],t[1])}</td>`
+          + tds + '</tr>';
+      }).join('');
+      const trs=$('tbody').querySelectorAll('tr');
+      list.forEach((rp,i)=>{ const c=trs[i].querySelector('td.mx-rep'); if(c) c.textContent=rp; });
+    }
+    $('rowcount').textContent = `${list.length} rep${list.length===1?'':'s'}`;
+  }
+
+  // date helpers (the "dd MMM" part of the Sent column)
+  const MON = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  const dateOf = s => s ? s.slice(0, s.lastIndexOf(' ')) : '';
+  const dkey = d => { const p=d.split(' '); return (MON[p[1]]||0)*100 + (parseInt(p[0],10)||0); };
+  const timeKey = s => { if(!s) return -1; const p=s.split(' '); const t=(p[2]||'0:0').split(':'); return dkey(p[0]+' '+p[1])*1440 + (+t[0]||0)*60 + (+t[1]||0); };
+
+  // ---- Visit tabs ------------------------------------------------------------------------------
+  function visitSorted(){
+    let rows=visitFiltered();
+    if(sortCol){
+      const key = r => sortCol==='check'?r.pct : sortCol==='notdone'?r.notdone : sortCol==='actions'?r.actions
+                     : sortCol==='date'?r.date : String(r[sortCol]||'').toLowerCase();
+      rows.sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*sortDir; });
+    } else rows.sort((a,b)=> a.date<b.date?1:a.date>b.date?-1:0);   // latest visit first
+    return rows;
+  }
+  // Cards are split by tab: KPI Actions gets the action-card metric, Visit Compliance gets the
+  // checklist metrics. Visits and Reps are neutral and appear on both so each tab stands alone.
+  function renderVisitKpis(rows){
+    const reps=new Set(rows.map(r=>r.rec).filter(Boolean)).size;
+    let td=0,tp=0,tu=0,tnd=0,tac=0;
+    rows.forEach(r=>{ tnd+=r.notdone; tac+=r.actions; if(r.presented>0){ td+=r.done; tp+=r.presented; tu+=r.unanswered; } });
+    const p = tp>0?Math.min(100,Math.round(td*100/tp)):0;
+    const cards = tab==='vxkpi'
+      ? [ ['', rows.length, 'Visits', 'with feedback'],
+          ['', reps, 'Reps', 'reporting'],
+          ['', tac, 'Items done', 'action cards'] ]
+      : [ ['', rows.length, 'Visits', 'with feedback'],
+          ['', reps, 'Reps', 'reporting'],
+          [tp?(p>=90?'ok':p<60?'bad':''):'', tp?p+'%':'–', 'Checklist done', td+' / '+tp],
+          [tu>0?'bad':'', tu, 'Unanswered', 'items skipped'],
+          [tnd>0?'bad':'', tnd, 'Not done', 'items flagged'] ];
+    $('kpis').innerHTML = cards.map(c=>`<div class="kpi ${c[0]}"><div class="v">${c[1]}</div><div class="l">${c[2]}</div><div class="s">${c[3]||''}</div></div>`).join('');
+  }
+  function renderVisitExec(){
+    const rows = visitSorted();
+    renderVisitKpis(rows);
+    renderVxPanel(rows);
+    const kd=KINDS.find(k=>k.key===tab);
+    $('thead').innerHTML = headHtml(kd, ['actions']);
+    bindSort();
+    if(!rows.length){ $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${kd.head.length}">No visit feedback in range.</td></tr>`; }
+    else {
+      $('tbody').innerHTML = rows.map(r=>{
+        const chk = r.presented>0
+          ? `<span class="ch ${r.pct>=90?'ch-green':r.pct>=60?'ch-yellow':'ch-red'}">${r.done}/${r.presented} · ${r.pct}%</span>`+(r.unanswered>0?` <span class="dash" style="font-size:11px" title="shown but not answered">${r.unanswered} skipped</span>`:'')
+          : ((r.done||r.notdone) ? `<span class="ch ch-yellow">${r.done} done · ${r.notdone} not</span>` : '<span class="dash">—</span>');
+        const nd = r.notdone>0 ? `<span class="no">${r.notdone}</span> <span style="color:var(--soft);font-size:11px">${esc(chkLabels(r.notdoneitems))}</span>`+(r.notdonereasons?`<div style="color:var(--soft);font-size:11px;margin-top:2px">${esc(prettyReasons(r.notdonereasons))}</div>`:'') : '<span class="dash">0</span>';
+        return '<tr>'+kd.cols.map(col=>{
+          if(col==='scope')  return `<td class="scope">${esc(r.scope)}</td>`;
+          if(col==='name')   return `<td class="sname">${r.name?esc(r.name):'<span class="dash">—</span>'}</td>`;
+          if(col==='rec')    return `<td class="rec">${esc(r.rec||'—')}</td>`;
+          if(col==='date')   return `<td>${esc(isoLabel(r.date))}</td>`;
+          if(col==='check')  return `<td>${chk}</td>`;
+          if(col==='notdone')return `<td>${nd}</td>`;
+          if(col==='actions')return `<td class="num">${r.actions? (r.actions + kpiSplit(r.kpi)) : '<span class="dash">0</span>'}</td>`;
+          return '<td></td>';
+        }).join('')+'</tr>';
+      }).join('');
+    }
+    $('rowcount').textContent = `${rows.length} visit${rows.length===1?'':'s'}`;
+  }
+  // Per-row split of "Items done" by KPI bucket (only the non-zero buckets), shown under the total.
+  function kpiSplit(k){
+    const parts=VKPI.filter(m=>k[m.i]>0).map(m=>`${m.ab} ${k[m.i]}`);
+    if(k[5]>0) parts.push('Other '+k[5]);
+    return parts.length ? `<div class="vx-split">${parts.join(' · ')}</div>` : '';
+  }
+  // ---- "KPI actions by visit" detail table (date · store · rep × KPI), sortable, filter-linked ----
+  const VXD_COLS = [
+    {k:'date',   h:'Date'},
+    {k:'store',  h:'Store'},
+    {k:'name',   h:'Store name'},
+    {k:'rep',    h:'Rep'},
+    {k:'oos',    h:'OOS',       num:true, i:0},
+    {k:'low',    h:'Low cover', num:true, i:1},
+    {k:'phantom',h:'Phantom',   num:true, i:2},
+    {k:'neg',    h:'Negative',  num:true, i:3},
+    {k:'disc',   h:'Discont.',  num:true, i:4},
+    {k:'other',  h:'Other',     num:true, i:5},
+    {k:'total',  h:'Total',     num:true},
+  ];
+  if(!HAS_NAMES){ const i=VXD_COLS.findIndex(c=>c.k==='name'); if(i>=0) VXD_COLS.splice(i,1); }
+  let vxdSort='date', vxdDir=-1;                          // default: latest visit first
+  const vxdCell = n => n>0 ? String(n) : '<span class="dash">·</span>';
+  // A KPI cell with its to-do denominator: done/flagged + colour-banded %. flagged null (report pre-dates the
+  // feature) → done only; flagged 0 (store had none in this KPI) → blank.
+  function vxdKcell(done, flagged){
+    if(flagged==null) return done>0 ? '<b>'+done+'</b>' : '<span class="dash">·</span>';
+    if(flagged===0)   return '<span class="dash">·</span>';
+    const p=Math.min(100,Math.round(done*100/flagged)), band=p>=90?'g':p>=60?'y':'r';
+    return '<b>'+done+'</b>/'+flagged+' <span class="vxc-p vxc-'+band+'">'+p+'%</span>';
+  }
+  function vxDetailRows(rows){
+    const out = rows.map(r=>{ let d=0,f=0; for(let i=0;i<6;i++) d+=(r.kpi[i]||0); for(let i=0;i<5;i++) f+=(r.kpif[i]||0);
+                              return {date:r.date, store:r.scope, name:r.name, rep:r.rec, k:r.kpi, f:r.kpif, total:d, flagged:f}; })
+                    .filter(r=>r.total>0 || r.flagged>0);  // a completion OR a to-do (0%-completion visits matter most)
+    const col = VXD_COLS.find(c=>c.k===vxdSort);
+    const key = r => vxdSort==='date'  ? r.date
+                   : vxdSort==='store' ? (r.store||'').toLowerCase()
+                   : vxdSort==='name'  ? (r.name||'').toLowerCase()
+                   : vxdSort==='rep'   ? (r.rep||'').toLowerCase()
+                   : vxdSort==='total' ? r.total
+                   : (col && col.i!=null ? (r.k[col.i]||0) : 0);
+    out.sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*vxdDir || (a.date<b.date?1:a.date>b.date?-1:0); });
+    return out;
+  }
+  function vxDetailHtml(rows){
+    const dr=vxDetailRows(rows);
+    const arr = k => vxdSort===k ? (vxdDir>0?' ▲':' ▼') : '';
+    const head = '<tr>'+VXD_COLS.map(c=>`<th data-vxd="${c.k}" class="${c.num?'num':''}${vxdSort===c.k?' sorted':''}">${esc(c.h)}${arr(c.k)}</th>`).join('')+'</tr>';
+    if(!dr.length) return `<div class="vx-dtl-wrap"><table class="vx-dtl"><thead>${head}</thead><tbody><tr><td colspan="${VXD_COLS.length}" class="vx-dtl-empty">Nothing to show in range.</td></tr></tbody></table></div>`;
+    const body = dr.map(r=>'<tr>'+
+      `<td>${esc(isoLabel(r.date))}</td>`+
+      `<td>${esc(r.store||'—')}</td>`+
+      (HAS_NAMES?`<td>${r.name?esc(r.name):'<span class="dash">—</span>'}</td>`:'')+
+      `<td>${esc(r.rep||'—')}</td>`+
+      VKPI.map(m=>`<td class="num">${vxdKcell(r.k[m.i], r.f[m.i])}</td>`).join('')+
+      `<td class="num">${vxdCell(r.k[5])}</td>`+
+      `<td class="num"><b>${r.total}</b></td>`+
+    '</tr>').join('');
+    return `<div class="vx-dtl-wrap"><table class="vx-dtl"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  // ---- "Before you leave — by item" table: each non-negotiable across the visits that PRESENTED it —
+  //      Done / Not done / Skipped / Done% (done ÷ presented). Sortable; default = lowest completion first so the
+  //      items reps are skipping surface at the top. Only visits with a recorded presented set contribute (a
+  //      pre-feature visit can't attribute "skipped"). p ≥ d+n by construction (a rep can only answer an item
+  //      they were shown), so skipped = p−d−n ≥ 0. Filter-linked (same rows as the cards + by-visit table). ----
+  const VXI_COLS = [
+    {k:'item', h:'Item'},
+    {k:'p',    h:'Presented', num:true},
+    {k:'d',    h:'Done',      num:true},
+    {k:'n',    h:'Not done',  num:true},
+    {k:'u',    h:'Skipped',   num:true},
+    {k:'pct',  h:'Done %',    num:true},
+  ];
+  let vxiSort='pct', vxiDir=1;                            // default: lowest completion first (the neglected items)
+  function vxItemRows(rows){
+    const acc={};
+    rows.forEach(r=>{
+      if(!r.pset || !r.pset.size) return;
+      r.pset.forEach(id=>{ (acc[id]||(acc[id]={d:0,n:0,p:0})).p++; });
+      csvSet(r.doneitems).forEach(id=>{ if(acc[id]) acc[id].d++; });
+      csvSet(r.notdoneitems).forEach(id=>{ if(acc[id]) acc[id].n++; });
+    });
+    const out=Object.keys(acc).map(id=>{ const a=acc[id], u=Math.max(0,a.p-a.d-a.n);
+      return {id, item:CHK_LABELS[id]||id, p:a.p, d:a.d, n:a.n, u:u, pct:a.p?Math.min(100,Math.round(a.d*100/a.p)):0}; });
+    const cord = id => { const i=CHK_ORDER.indexOf(id); return i<0?99:i; };
+    const key = r => vxiSort==='item' ? (r.item||'').toLowerCase() : (r[vxiSort]||0);
+    out.sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*vxiDir || (cord(a.id)-cord(b.id)); });
+    return out;
+  }
+  function vxItemHtml(rows){
+    const dr=vxItemRows(rows);
+    const arr = k => vxiSort===k ? (vxiDir>0?' ▲':' ▼') : '';
+    const head='<tr>'+VXI_COLS.map(c=>`<th data-vxi="${c.k}" class="${c.num?'num':''}${vxiSort===c.k?' sorted':''}">${esc(c.h)}${arr(c.k)}</th>`).join('')+'</tr>';
+    if(!dr.length) return `<div class="vx-dtl-wrap"><table class="vx-dtl"><thead>${head}</thead><tbody><tr><td colspan="${VXI_COLS.length}" class="vx-dtl-empty">No checklist items presented in range.</td></tr></tbody></table></div>`;
+    const body=dr.map(r=>{ const band=r.pct>=90?'g':r.pct>=60?'y':'r', fill=band==='g'?'var(--green)':band==='y'?'#d9a441':'var(--red)';
+      return '<tr>'+
+        `<td>${esc(r.item)}</td>`+
+        `<td class="num"><b>${r.p}</b></td>`+
+        `<td class="num">${r.d}</td>`+
+        `<td class="num">${r.n>0?r.n:'<span class="dash">·</span>'}</td>`+
+        `<td class="num">${r.u>0?('<b>'+r.u+'</b>'):'<span class="dash">·</span>'}</td>`+
+        `<td class="num"><span class="vx-bar" style="display:inline-block;width:54px;vertical-align:middle;margin-right:6px"><i style="width:${r.pct}%;background:${fill}"></i></span><span class="vxc-p vxc-${band}">${r.pct}%</span></td>`+
+      '</tr>'; }).join('');
+    return `<div class="vx-dtl-wrap"><table class="vx-dtl"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  // The supporting panel differs per visit tab: KPI Actions gets the by-KPI cards + by-visit detail,
+  // Visit Compliance gets the per-item checklist breakdown. The sort listener is delegated from
+  // #vxPanel and bound once — #vxPanel stays the same element on both tabs, so it keeps working.
+  function renderVxPanel(rows){
+    if(!renderVxPanel._bound){ renderVxPanel._bound=true;
+      $('vxPanel').addEventListener('click', e=>{
+        const thd=e.target.closest('[data-vxd]');
+        if(thd){ const k=thd.getAttribute('data-vxd'); if(vxdSort===k) vxdDir=-vxdDir; else { vxdSort=k; vxdDir=(k==='store'||k==='rep'||k==='name')?1:-1; } render(); return; }
+        const thi=e.target.closest('[data-vxi]');
+        if(thi){ const k=thi.getAttribute('data-vxi'); if(vxiSort===k) vxiDir=-vxiDir; else { vxiSort=k; vxiDir=(k==='item'||k==='pct')?1:-1; } render(); return; }
+      });
+    }
+    if(tab==='vxkpi'){
+      const k=[0,0,0,0,0,0], f=[0,0,0,0,0]; rows.forEach(r=>{ for(let i=0;i<6;i++) k[i]+=(r.kpi[i]||0); for(let i=0;i<5;i++) f[i]+=(r.kpif[i]||0); });
+      const totalDone=k.reduce((a,b)=>a+b,0);
+      let cards=VKPI.map(m=>{ const d=k[m.i], fl=f[m.i];
+        const sub = fl>0 ? `<div class="vx-kf">of ${fl} · <b>${Math.min(100,Math.round(d*100/fl))}%</b> done</div>` : '';
+        return `<div class="vx-k"><div class="v">${d}</div><div class="l">${m.label}</div>${sub}</div>`; }).join('');
+      if(k[5]>0) cards+=`<div class="vx-k"><div class="v">${k[5]}</div><div class="l">Other</div></div>`;
+      $('vxPanel').innerHTML =
+        `<div class="vx-sect"><div class="vx-h">Action items completed, by KPI <span class="sub">${totalDone} marked complete</span></div>`+
+          `<p class="vx-desc">Every action-card item reps ticked off across the visits in view, grouped by the KPI that raised it. Where the report recorded how many items were flagged to begin with, the card also shows what share of them was actioned.</p>`+
+          `<div class="vx-kpis">${cards}</div></div>`+
+        `<div class="vx-sect"><div class="vx-h">Action items completed, by visit${csvBtn('vxd')}</div>`+
+          `<p class="vx-desc">The same completions broken down to a single visit. Each KPI cell shows completed ÷ flagged with the resulting percentage, so a visit that actioned nothing is as visible as one that actioned everything. Click any header to sort.</p>`+
+          `${vxDetailHtml(rows)}</div>`;
+    } else {
+      $('vxPanel').innerHTML =
+        `<div class="vx-sect"><div class="vx-h">Before you leave, by item${csvBtn('vxi')}</div>`+
+          `<p class="vx-desc">Each non-negotiable across the visits that actually presented it. “Skipped” means the rep was shown the item and never answered either way — those count against the completion rate. Sorted by lowest completion first, so the items being skipped surface at the top.</p>`+
+          `${vxItemHtml(rows)}</div>`;
+    }
+  }
+
+  // ---- KPI cards (recompute from the filtered rows; every card reflects the active filters) ----
+  function renderKpis(rows){
+    const cards=[];
+    const k=(v,l,s,cls)=>cards.push(`<div class="kpi ${cls||''}"><div class="v">${v}</div><div class="l">${l}</div><div class="s">${s||''}</div></div>`);
+    const distinctReps = rs => { const set=new Set(); rs.forEach(r=>{ if(r.role==='field'&&r.rec) set.add(r.rec); }); return set.size; };
+    const medianMins = rs => { const m=rs.filter(r=>r.opened && r.mins!=null).map(r=>r.mins).sort((a,b)=>a-b); return m.length ? m[Math.floor((m.length-1)/2)] : null; };
+    const opened = rows.filter(r=>r.opened).length, sent = rows.length, un = sent-opened;
+    if(tab==='reps'){
+      // Reps / store — rep-focused.
+      const stores = new Set(rows.map(r=>r.scope||'—')).size;
+      const reps = distinctReps(rows);
+      const avg = stores ? Math.round(reps/stores*10)/10 : 0;
+      k(stores,'Stores','in view');
+      k(reps,'Reps','distinct field reps');
+      k(avg,'Avg reps / store','');
+      k(sent?pct(opened,sent)+'%':'–','Open rate',`${opened} / ${sent}`);
+      k(un,'Unopened',un?'awaiting open':'all opened',un?'bad':'ok');
+    } else {
+      // Detail (store sends) — rep engagement only.
+      const md = medianMins(rows);
+      k(distinctReps(rows),'Reps','distinct field reps');
+      k(sent,'Sent','in view');
+      k(sent?pct(opened,sent)+'%':'–','Open rate',`${opened} / ${sent}`);
+      k(un,'Unopened',un?'awaiting open':'all opened',un?'bad':'ok');
+      k(md==null?'–':fmtMins(md),'Median to open','first open');
+    }
+    $('kpis').innerHTML=cards.join('');
+  }
+
+  // ---- tabs ----
+  $('tabs').innerHTML = KINDS.map(kd=>{
+    const n = kd.key==='reps' ? new Set((rowsByKind.store||[]).map(r=>r.scope||'—')).size
+            : kd.key==='repmx' ? new Set((DATA.repDaily||[]).map(x=>x[0])).size
+            : (kd.key==='vxkpi'||kd.key==='vxchk') ? visitRows.length
+            : (rowsByKind[kd.key]||[]).length;
+    return `<button class="tab" data-k="${kd.key}">${kd.label} <span class="c">· ${n}</span></button>`;
+  }).join('');
+  // Tab change no longer rebuilds the filter option lists, so selections carry across tabs.
+  $('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ tab=b.dataset.k; sortCol=null; render(); });
+
+  function bindSort(){
+    $('thead').querySelectorAll('th[data-c]').forEach(th=>th.onclick=()=>{
+      const c=th.dataset.c; if(sortCol===c) sortDir=-sortDir; else { sortCol=c; sortDir=1; } render();
+    });
+  }
+  function headHtml(kd, numericCols){
+    return '<tr>' + kd.head.map((h,i)=>{
+      const col=kd.cols[i];
+      const arr = sortCol===col ? `<span class="arr">${sortDir>0?'▲':'▼'}</span>` : '';
+      return `<th data-c="${col}" class="${numericCols.includes(col)?'num':''}">${h} ${arr}</th>`;
+    }).join('') + '</tr>';
+  }
+  function renderTblHead(){
+    const doc = TABDOC[tab] || ['',''];
+    $('tblhead').innerHTML = `<h2>${esc(doc[0])}${csvBtn('main')}</h2><p>${esc(doc[1])}</p>`;
+  }
+
+  // ---- CSV builders (one per table; all read the same model the screen does) --------------------
+  const csvName = () => ({store:'engagement-detail', repmx:'engagement-reps-by-day', reps:'engagement-reps-per-store',
+                          vxkpi:'engagement-kpi-actions', vxchk:'engagement-visit-compliance'}[tab] || 'engagement');
+  CSV.main = () => {
+    const kd = KINDS.find(k=>k.key===tab);
+    if(tab==='repmx'){
+      const {dates, reps, cell, total} = repMatrix();
+      const header = ['Rep','Opened','Sent','Open %'].concat(dates.map(isoLabel).map(d=>d+' opened')).concat(dates.map(isoLabel).map(d=>d+' sent'));
+      const rows = reps.slice().sort().map(rp=>{
+        const t=total[rp];
+        return [rp, t[0], t[1], pct(t[0],t[1])+'%']
+          .concat(dates.map(d=> cell[rp][d] ? cell[rp][d][0] : ''))
+          .concat(dates.map(d=> cell[rp][d] ? cell[rp][d][1] : ''));
+      });
+      return {name:csvName(), header, rows};
+    }
+    if(isVisitTab()){
+      const rows = visitSorted().map(r=>kd.cols.map(col=>
+        col==='scope'  ? r.scope :
+        col==='name'   ? r.name :
+        col==='rec'    ? r.rec :
+        col==='date'   ? isoLabel(r.date) :
+        col==='check'  ? (r.presented>0 ? `${r.done}/${r.presented} (${r.pct}%)` : `${r.done} done / ${r.notdone} not`) :
+        col==='notdone'? (r.notdone>0 ? `${r.notdone}: ${chkLabels(r.notdoneitems)}${r.notdonereasons?' — '+prettyReasons(r.notdonereasons):''}` : '0') :
+        col==='actions'? r.actions : ''));
+      return {name:csvName(), header:kd.head.slice(), rows};
+    }
+    if(tab==='reps'){
+      let agg = repsAgg(filteredRows());
+      if(sortCol){ agg.sort((a,b)=>{ let x=a[sortCol],y=b[sortCol]; if(typeof x==='string'){x=x.toLowerCase();y=(y||'').toLowerCase();} return (x>y?1:x<y?-1:0)*sortDir; }); }
+      const rows = agg.map(a=>kd.cols.map(col=> col==='openpct' ? a.openpct+'%' : a[col]));
+      return {name:csvName(), header:kd.head.slice(), rows};
+    }
+    const rows = detailSorted().map(r=>kd.cols.map(col=>
+      col==='opened' ? (r.opened?'Yes':'No') :
+      col==='mins'   ? (r.mins==null?'':fmtMins(r.mins)) :
+      col==='role'   ? (r.role||'') :
+      (r[col]==null?'':r[col])));
+    return {name:csvName(), header:kd.head.slice(), rows};
+  };
+  CSV.vxd = () => {
+    const dr = vxDetailRows(visitSorted());
+    const header = VXD_COLS.map(c=>c.h);
+    const rows = dr.map(r=>VXD_COLS.map(c=>
+      c.k==='date'  ? isoLabel(r.date) :
+      c.k==='store' ? r.store :
+      c.k==='name'  ? r.name :
+      c.k==='rep'   ? r.rep :
+      c.k==='total' ? r.total :
+      c.k==='other' ? r.k[5] :
+      (c.i!=null ? (r.f[c.i]==null ? r.k[c.i] : `${r.k[c.i]}/${r.f[c.i]}`) : '')));
+    return {name:'engagement-kpi-actions-by-visit', header, rows};
+  };
+  CSV.vxi = () => {
+    const dr = vxItemRows(visitSorted());
+    return {name:'engagement-checklist-by-item', header:VXI_COLS.map(c=>c.h),
+            rows: dr.map(r=>[r.item, r.p, r.d, r.n, r.u, r.pct+'%'])};
+  };
+
+  function detailSorted(){
+    let rows2 = filteredRows().slice();
+    if(sortCol){
+      rows2.sort((a,b)=>{
+        let x, y;
+        if(sortCol==='sent' || sortCol==='first'){ x=timeKey(a[sortCol]); y=timeKey(b[sortCol]); }
+        else if(sortCol==='mins'){ x=a.mins==null?Infinity:a.mins; y=b.mins==null?Infinity:b.mins; }
+        else if(sortCol==='opened'){ x=a.opened?1:0; y=b.opened?1:0; }
+        else { x=a[sortCol]; y=b[sortCol]; if(typeof x==='string'){ x=x.toLowerCase(); y=(y||'').toLowerCase(); } }
+        return (x>y?1:x<y?-1:0)*sortDir;
+      });
+    } else {
+      rows2.sort((a,b)=> timeKey(b.sent) - timeKey(a.sent));   // default: latest Sent first
+    }
+    return rows2;
+  }
+
+  function render(){
+    const kd = KINDS.find(k=>k.key===tab);
+    $('tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===tab));
+    $('tblwrap').classList.toggle('scrollbox', tab==='repmx');
+    $('tbl').classList.toggle('matrix', tab==='repmx');
+    $('trendPanel').hidden = isVisitTab();          // open-rate trend is meaningless on the visit tabs
+    $('vxPanel').hidden = !isVisitTab();
+    // "Unopened only" is about report opens — no meaning for a visit. Disable rather than silently ignore.
+    $('unopened').style.display = isVisitTab() ? 'none' : '';
+    $('fclear').hidden = !anyFilter();
+    renderTblHead();
+    renderTrend();
+    if(tab==='repmx'){ renderRepMatrix(); return; }
+    if(isVisitTab()){ renderVisitExec(); return; }
+    const rows = filteredRows();
+    renderKpis(rows);
+
+    if(tab==='reps'){
+      let agg = repsAgg(rows);
+      if(sortCol){ agg.sort((a,b)=>{ let x=a[sortCol],y=b[sortCol]; if(typeof x==='string'){x=x.toLowerCase();y=(y||'').toLowerCase();} return (x>y?1:x<y?-1:0)*sortDir; }); }
+      $('thead').innerHTML = headHtml(kd, ['reps','reports','opened','openpct']);
+      bindSort();
+      if(agg.length===0){
+        $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${kd.head.length}">Nothing to show here.</td></tr>`;
+      } else {
+        $('tbody').innerHTML = agg.map(a=>'<tr>'+kd.cols.map(col=>{
+          if(col==='store')  return '<td class="scope"></td>';
+          if(col==='name')   return '<td class="sname"></td>';
+          if(col==='openpct'){ const p=a.openpct, cls=p>=90?'ch-green':p>=60?'ch-yellow':'ch-red'; return `<td class="num"><span class="ch ${cls}">${p}%</span></td>`; }
+          return `<td class="num">${a[col]}</td>`;
+        }).join('')+'</tr>').join('');
+        const trs=$('tbody').querySelectorAll('tr');
+        agg.forEach((a,i)=>{
+          const sc=trs[i].querySelector('td.scope'); if(sc) sc.textContent=a.store;
+          const nm=trs[i].querySelector('td.sname'); if(nm) nm.textContent=a.name||'—';
+        });
+      }
+      $('rowcount').textContent = `${agg.length} store${agg.length===1?'':'s'}`;
+      return;
+    }
+
+    // Detail — one row per report copy sent
+    const rows2 = detailSorted();
+    $('thead').innerHTML = headHtml(kd, ['mins']);
+    bindSort();
+    if(rows2.length===0){
+      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${kd.head.length}">Nothing to show here.</td></tr>`;
+    } else {
+      $('tbody').innerHTML = rows2.map(r=>`<tr class="${r.opened?'row-opened':'row-unopened'}">`+kd.cols.map(col=>{
+        if(col==='scope') return `<td class="scope"></td>`;
+        if(col==='name')  return `<td class="sname"></td>`;
+        if(col==='rec')   return `<td class="rec"></td>`;
+        if(col==='role'){ const lbl=r.role==='field'?'rep':(r.role||''); return `<td><span class="role role-${r.role||'none'}">${lbl||'—'}</span></td>`; }
+        if(col==='opened')return r.opened?'<td class="yes">&#10003;</td>':'<td class="no">&#10007;</td>';
+        if(col==='mins')  return `<td class="num">${r.mins==null?'<span class="dash">—</span>':fmtMins(r.mins)}</td>`;
+        if(col==='first') return `<td>${r.first?esc(r.first):'<span class="dash">—</span>'}</td>`;
+        return `<td>${esc(r[col])}</td>`;
+      }).join('')+'</tr>').join('');
+      const trs = $('tbody').querySelectorAll('tr');
+      rows2.forEach((r,i)=>{
+        const tr = trs[i];
+        const sc = tr.querySelector('td.scope');
+        if(sc){
+          if(r.url){ sc.innerHTML = '<a class="rlink" target="_blank" rel="noopener noreferrer" title="Open the live report (won\'t count as an open)" href="'+esc(r.url)+'#noopen">'+esc(r.scope)+'<span class="ext">↗</span></a>'; }
+          else { sc.textContent = r.scope; }
+        }
+        const nm = tr.querySelector('td.sname'); if(nm) nm.textContent = r.name || '—';
+        const rc = tr.querySelector('td.rec');   if(rc) rc.textContent = r.rec || '—';
+      });
+    }
+    $('rowcount').textContent = `${rows2.length} shown`;
+  }
+
+  $('search').oninput = e=>{ query=e.target.value; render(); };
+  $('unopened').onclick = ()=>{ unopenedOnly=!unopenedOnly; $('unopened').classList.toggle('on',unopenedOnly); render(); };
+
+  buildFilters();
+  render();
+})();
+</script>
+</body>
+</html>
