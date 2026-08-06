@@ -15,7 +15,9 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 16px 60px;}
+  /* 1120 -> 1344 (+20%, 2026-08-06): the tables carry more columns than they used to (store name,
+     province) and there was unused horizontal space at every common laptop width. */
+  .wrap{max-width:1344px;margin:0 auto;padding:0 16px 60px;}
   a{color:var(--brand)}
 
   header.mast{background:var(--brand);color:#fff;border-radius:0 0 var(--radius) var(--radius);
@@ -25,20 +27,23 @@
   .mast .sub{font-size:13px;color:rgba(255,255,255,.82);margin-top:5px;}
 
   .asof{display:flex;align-items:center;gap:9px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;
-    border-radius:var(--radius);padding:11px 15px;margin-bottom:18px;font-size:13.5px;font-weight:600;}
+    border-radius:var(--radius);padding:11px 15px;margin-bottom:13px;font-size:13.5px;font-weight:600;}
   .asof::before{content:"\1F553";font-size:15px;filter:grayscale(.1);}
   .asof b{color:#7c2d12;}
 
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
-  .kpi{background:var(--card);border-radius:var(--radius);padding:15px 16px;border:1px solid var(--line);}
-  .kpi .v{font-size:27px;font-weight:700;line-height:1;color:var(--ink);}
+  /* Vertical rhythm tightened 2026-08-06: cards ~10% shorter, gaps between visuals ~25% smaller.
+     Card height is padding + three stacked lines, so the trim comes off the padding and the label
+     margin rather than the value's font-size, which has to stay readable at a glance. */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:13px;}
+  .kpi{background:var(--card);border-radius:var(--radius);padding:12px 16px;border:1px solid var(--line);}
+  .kpi .v{font-size:26px;font-weight:700;line-height:1;color:var(--ink);}
   .kpi .v small{font-size:15px;color:var(--soft);font-weight:600;}
-  .kpi .l{font-size:12px;color:var(--mute);margin-top:7px;}
+  .kpi .l{font-size:12px;color:var(--mute);margin-top:5px;}
   .kpi .s{font-size:12px;color:var(--soft);margin-top:2px;}
   .kpi.ok .v{color:var(--green)} .kpi.bad .v{color:var(--red)}
 
   /* Visit breakdowns: KPI actions + the before-you-leave checklist (both reflect the active filters) */
-  .vx-sect + .vx-sect{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+  .vx-sect + .vx-sect{margin-top:13px;padding-top:12px;border-top:1px solid var(--line);}
   .vx-h{font-size:13px;font-weight:600;color:var(--ink);margin:0 0 4px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
   .vx-h .sub{font-weight:400;color:var(--soft);font-size:12px;}
   .vx-desc{font-size:12px;color:var(--mute);margin:0 0 11px;max-width:80ch;}
@@ -69,7 +74,7 @@
   .vx-kf{font-size:11px;color:var(--soft);margin-top:4px;}
   .vx-kf b{color:var(--ink);font-weight:700;}
 
-  .panel{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:16px 18px;margin-bottom:18px;}
+  .panel{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:16px 18px;margin-bottom:13px;}
   .panel h2{margin:0 0 12px;font-size:14px;font-weight:600;color:var(--ink);}
   .panel h2 .hint{font-weight:400;color:var(--soft);font-size:12px;margin-left:6px;}
 
@@ -97,7 +102,7 @@
   .trend-x{display:flex;gap:5px;margin-top:6px;}
   .trend-x span{flex:1;text-align:center;font-size:10px;color:var(--soft);overflow:hidden;white-space:nowrap;}
 
-  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap;}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:11px;flex-wrap:wrap;}
   .tab{background:none;border:none;font:inherit;font-size:14px;color:var(--mute);padding:9px 14px;cursor:pointer;
     border-bottom:2px solid transparent;margin-bottom:-1px;}
   .tab.on{color:var(--brand);font-weight:600;border-bottom-color:var(--brand);}
@@ -172,6 +177,28 @@
   .ch-red{background:#fdecec;color:#b42318;}
   .ch-yellow{background:#fdf3d3;color:#7a5c00;}
   .ch-green{background:#e3f5ea;color:#12703a;}
+  /* Reps whose open rate is under 10% over the whole window. Black rather than another shade of red:
+     the cells are already red/amber/green banded, so a fourth colour on the same scale would read as
+     "slightly worse" instead of "this person is not opening their reports at all". */
+  .ch-black{background:#1f2937;color:#fff;}
+
+  /* Stores tab: a store row expands in place to reveal its visits. */
+  tr.st-row{cursor:pointer;}
+  tr.st-row:hover{background:var(--tint);}
+  tr.st-row.open{background:var(--tint);}
+  td.st-code{font-weight:600;white-space:nowrap;}
+  td.st-code .caret{display:inline-block;width:11px;color:var(--soft);font-size:10px;margin-right:5px;
+    transition:transform .12s;}
+  tr.st-row.open td.st-code .caret{transform:rotate(90deg);color:var(--brand);}
+  tr.st-sub > td{background:var(--paper);padding:0 10px 12px;border-bottom:1px solid var(--line);}
+  .st-sub-h{font-size:11.5px;font-weight:600;color:var(--mute);margin:9px 0 6px;}
+  .st-visits{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);
+    border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .st-visits th,.st-visits td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;}
+  .st-visits th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mute);font-weight:600;}
+  .st-visits th.num,.st-visits td.num{text-align:right;}
+  .st-visits tbody tr:last-child td{border-bottom:none;}
+  .st-none{color:var(--soft);font-size:12px;padding:8px 2px;}
   #tblwrap.scrollbox{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:8px;}
   table.matrix td{white-space:nowrap;}
   table.matrix td.num,table.matrix th.num{text-align:center;}
@@ -209,6 +236,7 @@
       <span class="ms-host" id="msScope"></span>
       <span class="ms-host" id="msName"></span>
       <span class="ms-host" id="msSub"></span>
+      <span class="ms-host" id="msProv"></span>
       <span class="ms-host" id="msRecip"></span>
       <span class="ms-host" id="msDomain"></span>
       <span class="toggle" id="unopened"><span>Unopened only</span></span>
@@ -329,9 +357,10 @@ const DATA = __PAYLOAD__;
   // missed: KINDS, TABDOC, the tab-count switch, sourceRows(), renderKpis()'s chain (its else is the
   // Detail fallback), render()'s chain, and the two visit-tab guards (isVisitTab covers both now).
   const KINDS = [
-    {key:'store',  label:'Detail',      cols:['scope','name','rec','role','sent','opened','first','mins'], head:['Store','Store name','Recipient','Role','Sent','Opened','First open','To open']},
+    {key:'store',  label:'Detail',      cols:['scope','name','prov','rec','role','sent','opened','first','mins'], head:['Store','Store name','Province','Recipient','Role','Sent','Opened','First open','To open']},
     {key:'repmx',  label:'Reps',        cols:[], head:[]},
-    {key:'reps',   label:'Reps / store',cols:['store','name','reps','reports','opened','openpct'],    head:['Store','Store name','Reps','Reports','Opened','Open %']},
+    {key:'reps',   label:'Reps / store',cols:['store','name','prov','reps','reports','opened','openpct'],    head:['Store','Store name','Province','Reps','Reports','Opened','Open %']},
+    {key:'stores', label:'Stores',      cols:[], head:[]},   // own renderer — rows expand to their visits
     {key:'vxkpi',  label:'KPI Actions', cols:['scope','name','rec','date','actions'],           head:['Store','Store name','Rep','Date','Items done']},
     {key:'vxchk',  label:'Visit Compliance', cols:['scope','name','rec','date','check','notdone'], head:['Store','Store name','Rep','Date','Checklist','Not done']},
   ];
@@ -342,17 +371,25 @@ const DATA = __PAYLOAD__;
     store: ['Reports sent, and who opened them',
       'One row per report copy sent to one person. A store visit produces a copy for the rep and a shared copy for managers, so the same store appears more than once. “Opened” means that person’s copy fired its beacon.'],
     repmx: ['Rep open rate by day',
-      'Each rep against each day in the window. A cell shows opened / sent and the resulting rate, colour-banded green at 90% and above, red below 60%. The totals block on the left is sortable independently of the day columns.'],
+      'Each rep against each day in the window. A cell shows opened / sent and the resulting rate, colour-banded green at 90% and above, red below 60%. “Stores” is how many distinct stores that rep was sent a report for. A rep whose name is on a black chip opened under 10% of everything sent to them across the whole window — not a bad day, a standing problem. The totals block on the left sorts independently of the day columns.'],
     reps: ['Store coverage and open rate',
       'One row per store, aggregated from the rows on the Detail tab. “Reps” counts the distinct field recipients who were sent that store’s report — internal reviewer copies are excluded.'],
+    stores: ['Every store visited in the window',
+      'One row per store, with its latest problem counts from the most recent visit that sent feedback. Click a row to see that store’s individual visits. KPI and checklist columns are blank where a visit produced no feedback — only about one visit in four does, so a blank means “nobody told us”, not “nothing found”.'],
     vxkpi: ['KPI actions completed per visit',
       'One row per store visit, showing how many action-card items the rep ticked off. Hover the total for the split by KPI. Only visits that reported feedback appear here.'],
     vxchk: ['Before-you-leave checklist per visit',
       'One row per store visit, showing how the rep answered the non-negotiables they were shown. “Checklist” is completed ÷ items presented; “Not done” lists what was explicitly flagged, with the reason where one was given.'],
   };
 
+  // Province arrives from tblSites as raw UPPER ("WESTERN CAPE"). Title-cased HERE rather than in SQL,
+  // in one helper used for both the filter list and the table cells, so the two can never disagree —
+  // and so we don't have to keep a casing expression in step with the one in sp_GetPNP_AccountManagerKPIs
+  // (which only upper-cases the first letter, giving "Western cape").
+  const titleCase = s => String(s||'').toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+
   // reports row = [kind, scope, recipient, opened, sentSast, firstOpenSast, mins, role, url,
-  //                storeName, subChannel]
+  //                storeName, subChannel, province]
   // Client/account rows stopped being emitted 2026-08-05 when the Clients + Accounts tab was removed;
   // rowsByKind still buckets by kind so an older engine's rows land somewhere harmless rather than
   // being mistaken for store rows.
@@ -361,7 +398,7 @@ const DATA = __PAYLOAD__;
     (rowsByKind[r[0]]||(rowsByKind[r[0]]=[])).push({
       scope:r[1]||'', rec:r[2]||'', opened:r[3]===1,
       sent:r[4]||'', first:r[5]||'', mins:r[6], role:r[7]||'', url:r[8]||'',
-      name:r[9]||'', sub:r[10]||''
+      name:r[9]||'', sub:r[10]||'', prov:titleCase(r[11]||'')
     });
   });
 
@@ -373,12 +410,14 @@ const DATA = __PAYLOAD__;
   const storeMeta = {};
   (rowsByKind.store||[]).forEach(r=>{
     if(!r.scope) return;
-    const m = storeMeta[r.scope] || (storeMeta[r.scope] = {name:'', sub:''});
+    const m = storeMeta[r.scope] || (storeMeta[r.scope] = {name:'', sub:'', prov:''});
     if(!m.name && r.name) m.name = r.name;
     if(!m.sub  && r.sub)  m.sub  = r.sub;
+    if(!m.prov && r.prov) m.prov = r.prov;
   });
   const nameOf = code => (storeMeta[code] && storeMeta[code].name) || '';
   const subOf  = code => (storeMeta[code] && storeMeta[code].sub)  || '';
+  const provOf = code => (storeMeta[code] && storeMeta[code].prov) || '';
 
   // rep -> the stores they were sent reports for. Lets the store/name/sub filters reach the Reps
   // matrix, whose own payload (repDaily) has no store dimension at all.
@@ -392,12 +431,17 @@ const DATA = __PAYLOAD__;
   // sends 9-element rows, so rather than show a column of blanks until the next deploy, drop the column
   // entirely when nothing carries a name. Same idea as the sub-channel control disabling itself.
   const HAS_NAMES = (rowsByKind.store||[]).some(r=>r.name);
-  if(!HAS_NAMES){
+  // Province is the same story one migration later (2026-08-06): it only exists once
+  // db/2026-08-06_vReportEngagement_province.sql has been applied, so the engine and this template stay
+  // deployable in either order. cols and head are index-zipped by headHtml, so they MUST be spliced together.
+  const HAS_PROV  = (rowsByKind.store||[]).some(r=>r.prov);
+  [['name', HAS_NAMES], ['prov', HAS_PROV]].forEach(([col, present])=>{
+    if(present) return;
     KINDS.forEach(k=>{
-      const i=k.cols.indexOf('name');
+      const i=k.cols.indexOf(col);
       if(i>=0){ k.cols.splice(i,1); k.head.splice(i,1); }
     });
-  }
+  });
 
   // ---- Visit rows: per-store-visit checklist + action-card check-offs --------------------------
   // visits row = [store, rep, iso-date, done, answered, notDone, notDoneItems, notDoneReasons,
@@ -422,7 +466,7 @@ const DATA = __PAYLOAD__;
     const pset=csvSet(v[12]), pc=pset.size;
     const code=v[0]||'';
     return {
-      scope:code, name:nameOf(code), sub:subOf(code),
+      scope:code, name:nameOf(code), sub:subOf(code), prov:provOf(code),
       rec:v[1]||'', date:v[2]||'', done:done, answered:answered,
       notdone:+v[5]||0, notdoneitems:v[6]||'', notdonereasons:v[7]||'', actions:+v[8]||0,
       kpi: (Array.isArray(v[9])?v[9]:[]).map(n=>+n||0).concat([0,0,0,0,0,0]).slice(0,6),
@@ -503,6 +547,8 @@ const DATA = __PAYLOAD__;
   const msDomain= MultiSelect($('msDomain'),'All domains',    {onChange:render});
   // Retail sub-channel (CORP / FRANCHISE / FRANCHISE-EXPRESS / HYPER / …).
   const msSub   = MultiSelect($('msSub'),   'All sub-channels',{onChange:render});
+  // Province — same tblSites lookup as sub-channel, so it reaches every tab the same way.
+  const msProv  = MultiSelect($('msProv'),  'All provinces',   {searchable:true, onChange:render});
 
   // ---- ONE global option list per filter, built from every tab's data --------------------------
   // Previously these were rebuilt per tab, which both changed the available options underfoot and
@@ -525,6 +571,7 @@ const DATA = __PAYLOAD__;
     const stores = uniq([].concat(srows.map(r=>r.scope), visitRows.map(v=>v.scope))).sort();
     const names  = uniq([].concat(srows.map(r=>r.name),  visitRows.map(v=>v.name))).sort();
     const subs   = uniq([].concat(srows.map(r=>r.sub),   visitRows.map(v=>v.sub))).sort();
+    const provs  = uniq([].concat(srows.map(r=>r.prov),  visitRows.map(v=>v.prov))).sort();
     const recs   = uniq([].concat(srows.map(r=>r.rec),   visitRows.map(v=>v.rec), rd.map(x=>x[0]))).sort();
     const doms   = uniq(recs.map(domainOf)).sort();
 
@@ -532,36 +579,39 @@ const DATA = __PAYLOAD__;
     msScope.set(stores,'All stores');
     msName.set(names,'All store names');
     msSub.set(subs,'All sub-channels');
+    msProv.set(provs,'All provinces');
     msRecip.set(recs,'All recipients');
     msDomain.set(doms,'All domains');
     if(!names.length) $('msName').style.display='none';
     if(!subs.length)  $('msSub').style.display='none';
+    if(!provs.length) $('msProv').style.display='none';
   }
 
   function anyFilter(){
     return !!query || unopenedOnly || msDate.count() || msScope.count() || msName.count()
-        || msSub.count() || msRecip.count() || msDomain.count();
+        || msSub.count() || msProv.count() || msRecip.count() || msDomain.count();
   }
   $('fclear').onclick = ()=>{
     query=''; $('search').value='';
     unopenedOnly=false; $('unopened').classList.remove('on');
-    [msDate,msScope,msName,msSub,msRecip,msDomain].forEach(m=>m.clear());
+    [msDate,msScope,msName,msSub,msProv,msRecip,msDomain].forEach(m=>m.clear());
     render();
   };
 
   // ---- filtering -------------------------------------------------------------------------------
   function sourceRows(){
-    if(tab==='reps') return rowsByKind.store||[];
+    if(tab==='reps' || tab==='stores') return rowsByKind.store||[];
     return rowsByKind[tab]||[];
   }
 
   function passesF(r, useScope){
     const d=msDate.selected(), s=msScope.selected(), nm=msName.selected(),
-          rc=msRecip.selected(), dm=msDomain.selected(), sb=msSub.selected();
+          rc=msRecip.selected(), dm=msDomain.selected(), sb=msSub.selected(), pv=msProv.selected();
     if(d.size  && !d.has(dateOf(r.sent))) return false;
     if(useScope && s.size && !s.has(r.scope)) return false;
     if(nm.size && !nm.has(r.name||'')) return false;
     if(sb.size && !sb.has(r.sub||'')) return false;
+    if(pv.size && !pv.has(r.prov||'')) return false;
     if(rc.size && !rc.has(r.rec)) return false;
     if(dm.size && !dm.has(domainOf(r.rec))) return false;
     if(unopenedOnly && r.opened) return false;
@@ -577,7 +627,8 @@ const DATA = __PAYLOAD__;
   // meaning for a visit, so it is disabled rather than silently ignored.
   function visitFiltered(){
     const rq=query.toLowerCase(), rc=msRecip.selected(), dm=msDomain.selected(),
-          ds=msDate.selected(), sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected();
+          ds=msDate.selected(), sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected(),
+          pv=msProv.selected();
     return visitRows.filter(v=>{
       if(rc.size && !rc.has(v.rec)) return false;
       if(dm.size && !dm.has(domainOf(v.rec))) return false;
@@ -585,6 +636,7 @@ const DATA = __PAYLOAD__;
       if(sc.size && !sc.has(v.scope)) return false;
       if(nm.size && !nm.has(v.name||'')) return false;
       if(sb.size && !sb.has(v.sub||'')) return false;
+      if(pv.size && !pv.has(v.prov||'')) return false;
       if(query && !((v.scope+' '+v.name+' '+v.rec).toLowerCase().includes(rq))) return false;
       return true;
     });
@@ -595,26 +647,30 @@ const DATA = __PAYLOAD__;
     const m=new Map();
     rows.forEach(r=>{
       const s=r.scope||'—'; let o=m.get(s);
-      if(!o){ o={store:s, name:r.name||'', reps:new Set(), reports:0, opened:0}; m.set(s,o); }
+      if(!o){ o={store:s, name:r.name||'', prov:r.prov||'', reps:new Set(), reports:0, opened:0}; m.set(s,o); }
       if(!o.name && r.name) o.name=r.name;
+      if(!o.prov && r.prov) o.prov=r.prov;
       o.reports++; if(r.opened) o.opened++;
       if(r.role==='field' && r.rec) o.reps.add(r.rec);
     });
-    return [...m.values()].map(o=>({store:o.store, name:o.name, reps:o.reps.size, reports:o.reports, opened:o.opened, openpct:pct(o.opened,o.reports)}));
+    return [...m.values()].map(o=>({store:o.store, name:o.name, prov:o.prov, reps:o.reps.size, reports:o.reports, opened:o.opened, openpct:pct(o.opened,o.reports)}));
   }
 
   // ---- Reps matrix (distinct reps x rolling dates; cell = opened/sent + %, colour-banded) ----
   const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const isoLabel = iso => { const p=String(iso).split('-'); return p.length===3 ? p[2]+' '+(MONTHS[(+p[1])-1]||'') : String(iso); };
   const chiclet = (o,s) => { if(!s) return '<span class="dash">—</span>'; const p=Math.round(o*100/s); const cls=p>=90?'ch-green':p>=60?'ch-yellow':'ch-red'; return `<span class="ch ${cls}">${o}/${s} · ${p}%</span>`; };
+  // Same banding as chiclet, percentage only — for the matrix's Open % column, where the opened and
+  // sent counts already sit in their own columns immediately to its left.
+  const pctChip = (o,s) => { if(!s) return '<span class="dash">—</span>'; const p=Math.round(o*100/s); const cls=p>=90?'ch-green':p>=60?'ch-yellow':'ch-red'; return `<span class="ch ${cls}">${p}%</span>`; };
   const bandPct = (o,s) => s>0 ? o/s : -1;   // reps/cells with nothing sent sink to the bottom on sort
 
   function repMatrix(){
     const rq=query.toLowerCase(), rc=msRecip.selected(), dm=msDomain.selected(), ds=msDate.selected(),
-          sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected();
+          sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected(), pv=msProv.selected();
     // repDaily has no store dimension. Bridge through repStores so the store / store-name / sub-channel
     // filters still mean something here: keep a rep if ANY store they were sent a report for matches.
-    const storeFilterOn = sc.size || nm.size || sb.size;
+    const storeFilterOn = sc.size || nm.size || sb.size || pv.size;
     const repMatchesStore = rep => {
       const set = repStores[rep];
       if(!set) return false;
@@ -622,6 +678,7 @@ const DATA = __PAYLOAD__;
         if(sc.size && !sc.has(code)) continue;
         if(nm.size && !nm.has(nameOf(code))) continue;
         if(sb.size && !sb.has(subOf(code)))  continue;
+        if(pv.size && !pv.has(provOf(code))) continue;
         return true;
       }
       return false;
@@ -657,6 +714,24 @@ const DATA = __PAYLOAD__;
     $('kpis').innerHTML = cards.map(c=>`<div class="kpi ${c[0]}"><div class="v">${c[2]}</div><div class="l">${c[1]}</div><div class="s">${c[3]||''}</div></div>`).join('');
   }
 
+  // Distinct stores a rep was sent a report for, honouring the store-side filters — the same repStores
+  // bridge the filters use, so "Stores" and the rows the filters leave behind always agree.
+  const LOW_OPEN = 10;   // % — at or below this over the whole window, the rep's name gets a black chip
+  function repStoreCount(rep){
+    const sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected(), pv=msProv.selected();
+    const set = repStores[rep];
+    if(!set) return 0;
+    let n=0;
+    for(const code of set){
+      if(sc.size && !sc.has(code)) continue;
+      if(nm.size && !nm.has(nameOf(code))) continue;
+      if(sb.size && !sb.has(subOf(code)))  continue;
+      if(pv.size && !pv.has(provOf(code))) continue;
+      n++;
+    }
+    return n;
+  }
+
   function renderRepMatrix(){
     const {dates, reps, cell, total} = repMatrix();
     renderRepKpis(reps, total);
@@ -664,40 +739,60 @@ const DATA = __PAYLOAD__;
     const alpha = (a,b)=>a.toLowerCase()<b.toLowerCase()?-1:a.toLowerCase()>b.toLowerCase()?1:0;
     let list=reps.slice();
     if(sortCol==='rep')          list.sort((a,b)=>alpha(a,b)*sortDir);
+    else if(sortCol==='tstores') list.sort((a,b)=>(repStoreCount(a)-repStoreCount(b))*sortDir);
     else if(sortCol==='topened') list.sort((a,b)=>(total[a][0]-total[b][0])*sortDir);
     else if(sortCol==='tsent')   list.sort((a,b)=>(total[a][1]-total[b][1])*sortDir);
     else if(sortCol==='topct')   list.sort((a,b)=>(bandPct(total[a][0],total[a][1])-bandPct(total[b][0],total[b][1]))*sortDir);
     else if(sortCol)             list.sort((a,b)=>{ const ca=cell[a][sortCol], cb=cell[b][sortCol]; return ((ca?bandPct(ca[0],ca[1]):-1)-(cb?bandPct(cb[0],cb[1]):-1))*sortDir; });
     else                         list.sort(alpha);
 
-    // Totals (Opened · Sent · Open %) sit on the far left, right after Rep — each independently sortable — then the date columns.
+    // Totals block sits on the far left after Rep, each column independently sortable, then the dates.
+    // Order 2026-08-06: Stores · Sent · Opened · Open %. Sent before Opened reads as the funnel it is,
+    // and Open % is the bare percentage — the o/s detail is already in the two columns beside it.
     const head = '<tr><th class="mx-rep" data-c="rep">Rep '+arr('rep')+'</th>'
-      + `<th class="num mx-t" data-c="topened">Opened ${arr('topened')}</th>`
+      + `<th class="num mx-t" data-c="tstores">Stores ${arr('tstores')}</th>`
       + `<th class="num mx-t" data-c="tsent">Sent ${arr('tsent')}</th>`
+      + `<th class="num mx-t" data-c="topened">Opened ${arr('topened')}</th>`
       + `<th class="num mx-t mx-sep" data-c="topct">Open % ${arr('topct')}</th>`
       + dates.map(d=>`<th class="num" data-c="${d}">${isoLabel(d)} ${arr(d)}</th>`).join('')
       + '</tr>';
     let go=0, gs=0;
     reps.forEach(rp=>{ go+=total[rp][0]; gs+=total[rp][1]; });
+    const allStores = new Set();
+    reps.forEach(rp=>{ const s=repStores[rp]; if(s) s.forEach(c=>allStores.add(c)); });
     const totCells = dates.map(d=>{ let o=0,s=0; reps.forEach(rp=>{ const c=cell[rp][d]; if(c){o+=c[0];s+=c[1];} }); return `<th class="num">${chiclet(o,s)}</th>`; }).join('');
     const totRow = '<tr class="mx-total"><th class="mx-rep">All reps</th>'
-      + `<th class="num mx-t">${go}</th><th class="num mx-t">${gs}</th><th class="num mx-t mx-sep">${chiclet(go,gs)}</th>`
+      + `<th class="num mx-t">${allStores.size}</th><th class="num mx-t">${gs}</th><th class="num mx-t">${go}</th>`
+      + `<th class="num mx-t mx-sep">${pctChip(go,gs)}</th>`
       + totCells + '</tr>';
     $('thead').innerHTML = head + totRow;
     bindSort();
 
     if(list.length===0){
-      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${dates.length+4}">No rep data in range.</td></tr>`;
+      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${dates.length+5}">No rep data in range.</td></tr>`;
     } else {
       $('tbody').innerHTML = list.map(rp=>{
         const t=total[rp];
         const tds=dates.map(d=>{ const c=cell[rp][d]; return `<td class="num">${c?chiclet(c[0],c[1]):'<span class="dash">—</span>'}</td>`; }).join('');
         return '<tr><td class="mx-rep"></td>'
-          + `<td class="num mx-t">${t[0]}</td><td class="num mx-t">${t[1]}</td><td class="num mx-t mx-sep">${chiclet(t[0],t[1])}</td>`
+          + `<td class="num mx-t">${repStoreCount(rp)}</td><td class="num mx-t">${t[1]}</td><td class="num mx-t">${t[0]}</td>`
+          + `<td class="num mx-t mx-sep">${pctChip(t[0],t[1])}</td>`
           + tds + '</tr>';
       }).join('');
+      // Rep names are set as TEXT, never interpolated — they come from SQL, not from us. A rep at or
+      // below LOW_OPEN% across the window gets a black chip so the standing non-openers are findable
+      // at a glance rather than by reading every row's percentage.
       const trs=$('tbody').querySelectorAll('tr');
-      list.forEach((rp,i)=>{ const c=trs[i].querySelector('td.mx-rep'); if(c) c.textContent=rp; });
+      list.forEach((rp,i)=>{
+        const c=trs[i].querySelector('td.mx-rep'); if(!c) return;
+        const t=total[rp], p=t[1]>0 ? Math.round(t[0]*100/t[1]) : null;
+        if(p!==null && p<LOW_OPEN){
+          const chip=document.createElement('span');
+          chip.className='ch ch-black'; chip.textContent=rp;
+          chip.title=`Opened ${p}% of ${t[1]} reports over the window — under ${LOW_OPEN}%`;
+          c.textContent=''; c.appendChild(chip);
+        } else c.textContent=rp;
+      });
     }
     $('rowcount').textContent = `${list.length} rep${list.length===1?'':'s'}`;
   }
@@ -906,6 +1001,150 @@ const DATA = __PAYLOAD__;
     }
   }
 
+  // ---- Stores tab -------------------------------------------------------------------------------
+  // One row per store, built from the REPORT rows so every store visited in the window appears —
+  // not just the ~half whose visits sent feedback. Feedback is joined on where it exists; where it
+  // doesn't, the KPI and checklist cells stay blank, which is the honest answer ("nobody told us")
+  // rather than a misleading zero.
+  //
+  // The join key is store + "dd MMM": report rows carry `sent` as "dd MMM HH:mm" and visit rows carry
+  // an ISO date, and dateOf()/isoLabel() both normalise to "dd MMM". Unambiguous inside a 21-day window.
+  const openStores = new Set();                                   // codes currently expanded
+
+  function storesAgg(){
+    const fb = {};
+    visitFiltered().forEach(v=>{ fb[v.scope+'|'+isoLabel(v.date)] = v; });
+    const m = new Map();
+    filteredRows().forEach(r=>{
+      const code = r.scope || '—';
+      let o = m.get(code);
+      if(!o){ o = {code, name:'', sub:'', prov:'', byDate:new Map(), last:''}; m.set(code, o); }
+      if(!o.name && r.name) o.name = r.name;
+      if(!o.sub  && r.sub)  o.sub  = r.sub;
+      if(!o.prov && r.prov) o.prov = r.prov;
+      const d = dateOf(r.sent); if(!d) return;
+      let day = o.byDate.get(d);
+      if(!day){ day = {date:d, rep:'', k:timeKey(r.sent)}; o.byDate.set(d, day); }
+      // The rep is the FIELD recipient; the same visit also produces a shared managers copy.
+      if(!day.rep && r.role==='field' && r.rec) day.rep = r.rec;
+      if(timeKey(r.sent) > day.k) day.k = timeKey(r.sent);
+      if(timeKey(r.sent) > timeKey(o.last)) o.last = r.sent;
+    });
+    return [...m.values()].map(o=>{
+      const visits = [...o.byDate.values()]
+        .map(d=>({date:d.date, rep:d.rep, k:d.k, fb: fb[o.code+'|'+d.date] || null}))
+        .sort((a,b)=>b.k-a.k);                                    // latest visit first
+      const latest = visits.find(v=>v.fb);                        // most recent visit WITH feedback
+      return {code:o.code, name:o.name, sub:o.sub, prov:o.prov, last:o.last,
+              visits, nvisits:visits.length, fbCount:visits.filter(v=>v.fb).length,
+              kpi: latest ? latest.fb.kpif : null,                // the store's FLAGGED problems
+              lastFb: latest ? latest.date : ''};
+    });
+  }
+
+  const ST_COLS = [
+    {k:'code',  h:'Store'},
+    {k:'name',  h:'Store name'},
+    {k:'sub',   h:'Sub-channel'},
+    {k:'prov',  h:'Province'},
+    {k:'last',  h:'Last visited'},
+    {k:'nvisits', h:'Visits', num:true},
+    {k:'fbCount', h:'With feedback', num:true},
+    {k:'k0', h:'OOS',        num:true, i:0},
+    {k:'k1', h:'Low cover',  num:true, i:1},
+    {k:'k2', h:'Phantom',    num:true, i:2},
+    {k:'k3', h:'Negative',   num:true, i:3},
+    {k:'k4', h:'Discont.',   num:true, i:4},
+  ];
+  function stCols(){
+    return ST_COLS.filter(c => (c.k!=='name' || HAS_NAMES) && (c.k!=='prov' || HAS_PROV));
+  }
+  function storesSorted(){
+    const rows = storesAgg();
+    const col = ST_COLS.find(c=>c.k===sortCol);
+    const key = r => !col ? 0
+      : col.i!=null            ? (r.kpi ? (r.kpi[col.i]==null?-1:r.kpi[col.i]) : -1)
+      : col.k==='last'         ? timeKey(r.last)
+      : col.num                ? (r[col.k]||0)
+      : String(r[col.k]||'').toLowerCase();
+    if(sortCol) rows.sort((a,b)=>{ const x=key(a), y=key(b); return (x>y?1:x<y?-1:0)*sortDir; });
+    else rows.sort((a,b)=> timeKey(b.last)-timeKey(a.last));      // default: most recently visited first
+    return rows;
+  }
+  // A KPI cell on the store row: the count the report flagged, or a dash when that visit predates the
+  // per-KPI denominators. Blank (not zero) when the store has no feedback at all.
+  const stKpiCell = (kpi, i) => kpi==null ? '<span class="dash">—</span>'
+    : (kpi[i]==null ? '<span class="dash">·</span>' : (kpi[i]>0 ? '<b>'+kpi[i]+'</b>' : '<span class="dash">·</span>'));
+
+  function storeVisitsHtml(s){
+    if(!s.visits.length) return '<div class="st-none">No visits in range.</div>';
+    const rows = s.visits.map(v=>{
+      const f = v.fb;
+      const kpis = VKPI.map(m=>{
+        if(!f) return '<td class="num"><span class="dash">—</span></td>';
+        const done=f.kpi[m.i]||0, fl=f.kpif[m.i];
+        return `<td class="num">${fl==null ? (done>0?'<b>'+done+'</b>':'<span class="dash">·</span>')
+                                           : '<b>'+done+'</b>/'+fl}</td>`;
+      }).join('');
+      const chk = !f ? '<span class="dash">—</span>'
+        : f.presented>0
+          ? `<span class="ch ${f.pct>=90?'ch-green':f.pct>=60?'ch-yellow':'ch-red'}">${f.done}/${f.presented} · ${f.pct}%</span>`
+          : ((f.done||f.notdone) ? `<span class="ch ch-yellow">${f.done} done · ${f.notdone} not</span>` : '<span class="dash">—</span>');
+      return '<tr>'+
+        `<td>${esc(v.date)}</td>`+
+        `<td>${esc(v.rep||'—')}</td>`+
+        kpis+
+        `<td>${chk}</td>`+
+        `<td class="num">${f ? f.notdone : '<span class="dash">—</span>'}</td>`+
+      '</tr>';
+    }).join('');
+    return '<div class="st-sub-h">Visits &mdash; KPI cells are completed / flagged; a dash means that visit sent no feedback</div>'+
+      '<table class="st-visits"><thead><tr>'+
+      '<th>Date seen</th><th>Rep</th>'+VKPI.map(m=>`<th class="num">${esc(m.label)}</th>`).join('')+
+      '<th>Checklist</th><th class="num">Not done</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
+  function renderStores(){
+    const rows = storesSorted();
+    const cols = stCols();
+    const arr = k => sortCol===k ? `<span class="arr">${sortDir>0?'▲':'▼'}</span>` : '';
+    // Cards
+    const totVisits = rows.reduce((a,r)=>a+r.nvisits,0);
+    const withFb    = rows.filter(r=>r.fbCount>0).length;
+    const cards = [
+      ['', rows.length, 'Stores', 'visited in window'],
+      ['', totVisits, 'Visits', 'reports sent'],
+      [withFb<rows.length?'bad':'ok', `${withFb}<small> / ${rows.length}</small>`, 'With feedback', rows.length?pct(withFb,rows.length)+'% of stores':''],
+    ];
+    $('kpis').innerHTML = cards.map(c=>`<div class="kpi ${c[0]}"><div class="v">${c[1]}</div><div class="l">${c[2]}</div><div class="s">${c[3]||''}</div></div>`).join('');
+
+    $('thead').innerHTML = '<tr>'+cols.map(c=>`<th data-c="${c.k}" class="${c.num?'num':''}">${esc(c.h)} ${arr(c.k)}</th>`).join('')+'</tr>';
+    bindSort();
+    if(!rows.length){
+      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${cols.length}">No stores in range.</td></tr>`;
+    } else {
+      $('tbody').innerHTML = rows.map(s=>{
+        const open = openStores.has(s.code);
+        const cells = cols.map(c=>{
+          if(c.k==='code') return `<td class="st-code"><span class="caret">&#9654;</span>${esc(s.code)}</td>`;
+          if(c.i!=null)    return `<td class="num">${stKpiCell(s.kpi, c.i)}</td>`;
+          if(c.k==='last') return `<td>${esc(dateOf(s.last)||'—')}</td>`;
+          if(c.num)        return `<td class="num">${s[c.k]}</td>`;
+          return `<td>${s[c.k] ? esc(s[c.k]) : '<span class="dash">—</span>'}</td>`;
+        }).join('');
+        return `<tr class="st-row${open?' open':''}" data-store="${esc(s.code)}">${cells}</tr>`
+          + (open ? `<tr class="st-sub"><td colspan="${cols.length}">${storeVisitsHtml(s)}</td></tr>` : '');
+      }).join('');
+      // Bound after every render because tbody is replaced wholesale.
+      $('tbody').querySelectorAll('tr.st-row').forEach(tr=>tr.onclick=()=>{
+        const c = tr.getAttribute('data-store');
+        if(openStores.has(c)) openStores.delete(c); else openStores.add(c);
+        render();
+      });
+    }
+    $('rowcount').textContent = `${rows.length} store${rows.length===1?'':'s'}`;
+  }
+
   // ---- KPI cards (recompute from the filtered rows; every card reflects the active filters) ----
   function renderKpis(rows){
     const cards=[];
@@ -937,7 +1176,7 @@ const DATA = __PAYLOAD__;
 
   // ---- tabs ----
   $('tabs').innerHTML = KINDS.map(kd=>{
-    const n = kd.key==='reps' ? new Set((rowsByKind.store||[]).map(r=>r.scope||'—')).size
+    const n = (kd.key==='reps'||kd.key==='stores') ? new Set((rowsByKind.store||[]).map(r=>r.scope||'—')).size
             : kd.key==='repmx' ? new Set((DATA.repDaily||[]).map(x=>x[0])).size
             : (kd.key==='vxkpi'||kd.key==='vxchk') ? visitRows.length
             : (rowsByKind[kd.key]||[]).length;
@@ -965,19 +1204,29 @@ const DATA = __PAYLOAD__;
 
   // ---- CSV builders (one per table; all read the same model the screen does) --------------------
   const csvName = () => ({store:'engagement-detail', repmx:'engagement-reps-by-day', reps:'engagement-reps-per-store',
+                          stores:'engagement-stores',
                           vxkpi:'engagement-kpi-actions', vxchk:'engagement-visit-compliance'}[tab] || 'engagement');
   CSV.main = () => {
     const kd = KINDS.find(k=>k.key===tab);
     if(tab==='repmx'){
       const {dates, reps, cell, total} = repMatrix();
-      const header = ['Rep','Opened','Sent','Open %'].concat(dates.map(isoLabel).map(d=>d+' opened')).concat(dates.map(isoLabel).map(d=>d+' sent'));
+      const header = ['Rep','Stores','Sent','Opened','Open %'].concat(dates.map(isoLabel).map(d=>d+' opened')).concat(dates.map(isoLabel).map(d=>d+' sent'));
       const rows = reps.slice().sort().map(rp=>{
         const t=total[rp];
-        return [rp, t[0], t[1], pct(t[0],t[1])+'%']
+        return [rp, repStoreCount(rp), t[1], t[0], pct(t[0],t[1])+'%']
           .concat(dates.map(d=> cell[rp][d] ? cell[rp][d][0] : ''))
           .concat(dates.map(d=> cell[rp][d] ? cell[rp][d][1] : ''));
       });
       return {name:csvName(), header, rows};
+    }
+    if(tab==='stores'){
+      // Flat export: one row per store, KPI columns as the flagged counts shown on screen.
+      const cols = stCols();
+      const rows = storesSorted().map(s=>cols.map(c=>
+        c.i!=null        ? (s.kpi ? (s.kpi[c.i]==null?'':s.kpi[c.i]) : '') :
+        c.k==='last'     ? dateOf(s.last) :
+        (s[c.k]==null?'':s[c.k])));
+      return {name:csvName(), header:cols.map(c=>c.h), rows};
     }
     if(isVisitTab()){
       const rows = visitSorted().map(r=>kd.cols.map(col=>
@@ -1044,7 +1293,9 @@ const DATA = __PAYLOAD__;
     $('tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.k===tab));
     $('tblwrap').classList.toggle('scrollbox', tab==='repmx');
     $('tbl').classList.toggle('matrix', tab==='repmx');
-    $('trendPanel').hidden = isVisitTab();          // open-rate trend is meaningless on the visit tabs
+    // The open-rate trend is meaningless on the visit tabs, and on Stores the unit is the store, not
+    // the report copy — a daily open-rate line there would answer a question the tab isn't asking.
+    $('trendPanel').hidden = isVisitTab() || tab==='stores';
     $('vxPanel').hidden = !isVisitTab();
     // "Unopened only" is about report opens — no meaning for a visit. Disable rather than silently ignore.
     $('unopened').style.display = isVisitTab() ? 'none' : '';
@@ -1052,6 +1303,7 @@ const DATA = __PAYLOAD__;
     renderTblHead();
     renderTrend();
     if(tab==='repmx'){ renderRepMatrix(); return; }
+    if(tab==='stores'){ renderStores(); return; }
     if(isVisitTab()){ renderVisitExec(); return; }
     const rows = filteredRows();
     renderKpis(rows);
