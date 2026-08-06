@@ -386,7 +386,15 @@ const DATA = __PAYLOAD__;
   // in one helper used for both the filter list and the table cells, so the two can never disagree —
   // and so we don't have to keep a casing expression in step with the one in sp_GetPNP_AccountManagerKPIs
   // (which only upper-cases the first letter, giving "Western cape").
-  const titleCase = s => String(s||'').toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+  // Names whose real capitalisation no general rule produces. The generic pass gives "Kwazulu-Natal",
+  // which is simply the province's name spelled wrong on a report people read every day. Keyed on the
+  // raw UPPER value as it comes out of tblSites.
+  const CASE_EXCEPTIONS = { 'KWAZULU-NATAL': 'KwaZulu-Natal' };
+  const titleCase = s => {
+    const raw = String(s||'').trim();
+    return CASE_EXCEPTIONS[raw.toUpperCase()]
+        || raw.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+  };
 
   // reports row = [kind, scope, recipient, opened, sentSast, firstOpenSast, mins, role, url,
   //                storeName, subChannel, province]
