@@ -119,6 +119,22 @@
   .fclear:hover{text-decoration:underline;}
   .fclear[hidden]{display:none;}
 
+  /* Reps-tab open-rate bands. Single-select, so these read as one control rather than a set of toggles. */
+  .chipbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:9px;padding-top:9px;
+    border-top:1px solid var(--line);}
+  .chipbar[hidden]{display:none;}
+  .chipbar .lbl{font-size:11px;color:var(--soft);letter-spacing:.07em;text-transform:uppercase;
+    font-weight:600;margin-right:3px;}
+  .fchip{font-size:13px;color:var(--mute);cursor:pointer;border:1px solid var(--line);border-radius:20px;
+    padding:6px 13px;user-select:none;white-space:nowrap;}
+  .fchip:hover{border-color:var(--brand);color:var(--brand-d);}
+  .fchip.on{background:var(--tint);border-color:var(--brand);color:var(--brand-d);font-weight:600;}
+  .fchip .n{color:var(--soft);margin-left:6px;font-weight:400;font-variant-numeric:tabular-nums;}
+  .fchip.on .n{color:var(--brand);}
+  /* Nobody opening anything is the finding the tab exists to surface — let it read as a warning once armed. */
+  .fchip.on.warn{background:#fdeaea;border-color:#f3c0c0;color:var(--red);}
+  .fchip.on.warn .n{color:var(--red);}
+
   .filterbar{padding-bottom:6px;position:sticky;top:0;z-index:50;box-shadow:0 6px 16px rgba(15,62,120,.10);}
   .filterbar .tabs{margin-bottom:12px;}
   .filterbar .toolbar{margin-bottom:2px;}
@@ -243,6 +259,7 @@
       <a class="fclear" id="fclear" hidden>Clear filters</a>
       <span class="count" id="rowcount"></span>
     </div>
+    <div class="chipbar" id="repchips" hidden></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -371,7 +388,7 @@ const DATA = __PAYLOAD__;
     store: ['Reports sent, and who opened them',
       'One row per report copy sent to one person. A store visit produces a copy for the rep and a shared copy for managers, so the same store appears more than once. “Opened” means that person’s copy fired its beacon.'],
     repmx: ['Rep open rate by day',
-      'Each rep against each day in the window. A cell shows opened / sent and the resulting rate, colour-banded green at 90% and above, red below 60%. “Stores” is how many distinct stores that rep was sent a report for. A rep whose name is on a black chip opened under 10% of everything sent to them across the whole window — not a bad day, a standing problem. The totals block on the left sorts independently of the day columns.'],
+      'Each rep against each day in the window. A cell shows opened / sent and the resulting rate, colour-banded green at 90% and above, red below 60%. “Stores” is how many distinct stores that rep was sent a report for. A rep whose name is on a black chip opened under 10% of everything sent to them across the whole window — not a bad day, a standing problem. The totals block on the left sorts independently of the day columns. The open-rate chips above narrow the table to one band, measured over the whole date range rather than any single day; the number on each chip is how many reps you would get by clicking it. Bands are cumulative, so “Under 50%” includes everyone in “Under 20%”. A rep who was sent nothing in the range appears under “All reps” only — with no report sent there is no open rate to judge them on.'],
     reps: ['Store coverage and open rate',
       'One row per store, aggregated from the rows on the Detail tab. “Reps” counts the distinct field recipients who were sent that store’s report — internal reviewer copies are excluded.'],
     stores: ['Every store visited in the window',
@@ -490,6 +507,34 @@ const DATA = __PAYLOAD__;
   // ---- filter state ----
   let tab = 'store', sortCol = null, sortDir = 1, query = '';
   let unopenedOnly = false;
+  // Reps tab open-rate band (null = all reps). SINGLE-select on purpose: the bands are nested
+  // (under 20% ⊂ under 50% ⊂ under 75%), so ticking several would only ever mean the widest one.
+  let repBand = null;
+
+  // Labels are cumulative thresholds, as asked for. "75% or more" rather than "greater than 75%" so
+  // a rep sitting exactly on 75 lands somewhere instead of vanishing between the last two bands.
+  const REP_BANDS = [
+    ['all',  'All reps'],
+    ['none', 'None opened'],
+    ['lt20', 'Under 20%'],
+    ['lt50', 'Under 50%'],
+    ['lt75', 'Under 75%'],
+    ['ge75', '75% or more'],
+  ];
+
+  // A rep sent NOTHING in the window has no open rate to judge, so they are excluded from every band —
+  // including "None opened", which means "was sent reports and opened none of them", not "is absent".
+  function inBand(rp, total, band){
+    const t = total[rp];
+    if(!t || t[1] === 0) return false;
+    const p = t[0] * 100 / t[1];
+    if(band === 'none') return t[0] === 0;
+    if(band === 'lt20') return p < 20;
+    if(band === 'lt50') return p < 50;
+    if(band === 'lt75') return p < 75;
+    if(band === 'ge75') return p >= 75;
+    return true;
+  }
 
   // ---- multi-select checkbox dropdown ----
   const MSes = [];
@@ -596,12 +641,13 @@ const DATA = __PAYLOAD__;
   }
 
   function anyFilter(){
-    return !!query || unopenedOnly || msDate.count() || msScope.count() || msName.count()
+    return !!query || unopenedOnly || !!repBand || msDate.count() || msScope.count() || msName.count()
         || msSub.count() || msProv.count() || msRecip.count() || msDomain.count();
   }
   $('fclear').onclick = ()=>{
     query=''; $('search').value='';
     unopenedOnly=false; $('unopened').classList.remove('on');
+    repBand=null;
     [msDate,msScope,msName,msSub,msProv,msRecip,msDomain].forEach(m=>m.clear());
     render();
   };
@@ -673,7 +719,11 @@ const DATA = __PAYLOAD__;
   const pctChip = (o,s) => { if(!s) return '<span class="dash">—</span>'; const p=Math.round(o*100/s); const cls=p>=90?'ch-green':p>=60?'ch-yellow':'ch-red'; return `<span class="ch ${cls}">${p}%</span>`; };
   const bandPct = (o,s) => s>0 ? o/s : -1;   // reps/cells with nothing sent sink to the bottom on sort
 
-  function repMatrix(){
+  // applyBand=false returns the UNBANDED rep set — only the chip row uses that, to count how many reps
+  // sit in each band. Everything else (matrix, KPI cards, totals row, trend, CSV) takes the default and
+  // therefore honours the chip automatically; applying the band in the renderer instead would have meant
+  // five separate call sites, four of which fail silently when missed.
+  function repMatrix(applyBand){
     const rq=query.toLowerCase(), rc=msRecip.selected(), dm=msDomain.selected(), ds=msDate.selected(),
           sc=msScope.selected(), nm=msName.selected(), sb=msSub.selected(), pv=msProv.selected();
     // repDaily has no store dimension. Bridge through repStores so the store / store-name / sub-channel
@@ -706,7 +756,11 @@ const DATA = __PAYLOAD__;
     src.forEach(x=>{ (cell[x[0]]=cell[x[0]]||{})[x[1]]=[x[3], x[2]]; });
     const total={};                                          // rep -> [opened, sent]
     reps.forEach(rp=>{ let o=0,s=0; dates.forEach(d=>{ const c=cell[rp][d]; if(c){o+=c[0];s+=c[1];} }); total[rp]=[o,s]; });
-    return {dates, reps, cell, total};
+    // The band filters ROWS only — `dates` still spans everything the other filters left, so the day
+    // columns hold still while you move between bands instead of the table reshaping under you. A dash
+    // in a kept row is itself the answer: that rep was sent nothing that day.
+    const banded = (applyBand !== false && repBand) ? reps.filter(rp=>inBand(rp,total,repBand)) : reps;
+    return {dates, reps:banded, cell, total};
   }
 
   function renderRepKpis(reps, total){
@@ -738,6 +792,26 @@ const DATA = __PAYLOAD__;
       n++;
     }
     return n;
+  }
+
+  // The band chips. Counts come from the UNBANDED set, so each chip says how many reps you would get by
+  // clicking it — a count that shrank to match the current selection would tell you nothing you can act on.
+  function renderRepChips(){
+    const bar = $('repchips');
+    bar.hidden = tab !== 'repmx';
+    if(bar.hidden) return;
+    const {reps, total} = repMatrix(false);
+    const n = b => b === 'all' ? reps.length : reps.filter(rp=>inBand(rp,total,b)).length;
+    const active = repBand || 'all';
+    bar.innerHTML = '<span class="lbl">Open rate</span>' + REP_BANDS.map(([k,label])=>{
+      const on = k === active ? ' on' + (k === 'none' ? ' warn' : '') : '';
+      return `<span class="fchip${on}" data-b="${k}">${label}<span class="n">${n(k)}</span></span>`;
+    }).join('');
+    bar.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
+      const b = c.dataset.b;
+      repBand = (b === 'all' || b === repBand) ? null : b;   // clicking the active chip clears it
+      render();
+    });
   }
 
   function renderRepMatrix(){
@@ -777,7 +851,11 @@ const DATA = __PAYLOAD__;
     bindSort();
 
     if(list.length===0){
-      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${dates.length+5}">No rep data in range.</td></tr>`;
+      // Distinguish "the band matched nobody" from "there is no data" — with a band armed the second
+      // message would read as a broken report when it is in fact good news.
+      const lbl = repBand ? (REP_BANDS.find(b=>b[0]===repBand)||[])[1] : null;
+      const msg = lbl ? `No rep falls in “${lbl}” with the current filters.` : 'No rep data in range.';
+      $('tbody').innerHTML = `<tr class="empty-row"><td colspan="${dates.length+5}">${msg}</td></tr>`;
     } else {
       $('tbody').innerHTML = list.map(rp=>{
         const t=total[rp];
@@ -1306,8 +1384,12 @@ const DATA = __PAYLOAD__;
     $('trendPanel').hidden = isVisitTab() || tab==='stores';
     $('vxPanel').hidden = !isVisitTab();
     // "Unopened only" is about report opens — no meaning for a visit. Disable rather than silently ignore.
-    $('unopened').style.display = isVisitTab() ? 'none' : '';
+    // It is hidden on Reps too: that tab reads DATA.repDaily, which repMatrix() filters WITHOUT consulting
+    // unopenedOnly, so the toggle was a control that quietly did nothing there. "None opened" is the
+    // rep-level equivalent and actually works.
+    $('unopened').style.display = (isVisitTab() || tab==='repmx') ? 'none' : '';
     $('fclear').hidden = !anyFilter();
+    renderRepChips();
     renderTblHead();
     renderTrend();
     if(tab==='repmx'){ renderRepMatrix(); return; }
