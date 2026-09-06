@@ -35,6 +35,21 @@
   .filterbar .clear{font-size:12px;color:var(--blue);cursor:pointer;background:none;border:0;font-family:inherit;}
   .lens{font-size:12px;color:var(--mute-2);margin-left:auto;}
 
+  /* multi-select filter — native <details> disclosure, no library */
+  .ms{position:relative;}
+  .ms>summary{list-style:none;cursor:pointer;height:34px;display:inline-flex;align-items:center;gap:5px;border:.5px solid var(--line);border-radius:8px;background:var(--paper);font-size:13px;color:var(--ink);padding:0 10px;white-space:nowrap;max-width:230px;}
+  .ms>summary::-webkit-details-marker{display:none;}
+  .ms>summary::after{content:'\25BE';color:var(--mute-2);font-size:11px;margin-left:2px;}
+  .ms[open]>summary::after{content:'\25B4';}
+  .ms>summary .msl{color:var(--mute);font-weight:600;} .ms>summary .msv{font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+  .ms[open]>summary{border-color:var(--blue);}
+  .ms-pop{position:absolute;z-index:40;top:38px;left:0;min-width:220px;max-width:320px;max-height:300px;overflow:auto;background:var(--card);border:.5px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;}
+  .ms-pop .msearch{width:100%;height:30px;border:.5px solid var(--line);border-radius:7px;padding:0 8px;font-family:inherit;font-size:13px;margin:2px 0 6px;}
+  .ms-pop label{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--ink);}
+  .ms-pop label:hover{background:var(--blue-tint);}
+  .ms-pop input[type=checkbox]{width:15px;height:15px;accent-color:var(--blue);flex:none;}
+  .ms-pop .msnone{color:var(--mute-2);font-size:12px;padding:6px 7px;}
+
   .pane{padding:18px 24px 40px;display:none;}
   .pane.active{display:block;}
   .h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:22px 0 10px;}
@@ -115,12 +130,8 @@
     </div>
   </header>
   <div class="tabs" id="tabs"></div>
-  <div class="filterbar">
-    <label>Country<select id="fCountry"></select></label>
-    <label>Sub-channel<select id="fSub"></select></label>
-    <label>Site profile<select id="fProfile"></select></label>
-    <label>Province<select id="fProvince"></select></label>
-    <label>Client<select id="fClient"></select></label>
+  <div class="filterbar" id="filterbar">
+    <span id="filterSlots" style="display:contents"></span>
     <button class="clear" id="fClear" type="button">Clear filters</button>
     <span class="lens" id="lens"></span>
   </div>
@@ -156,31 +167,26 @@
 
   function nf(x){ return (x==null?0:Math.round(x)).toLocaleString('en-ZA'); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function el(tag,props){ var e=document.createElement(tag); if(props) for(var k in props){ if(k==='className')e.className=props[k]; else if(k==='textContent')e.textContent=props[k]; else if(k==='type')e.type=props[k]; else e.setAttribute(k,props[k]); } return e; }
+  function prettyRep(email){ if(!email) return '—'; var p=String(email).split('@')[0].replace(/[._-]+/g,' ').trim(); return p.replace(/\b\w/g,function(c){return c.toUpperCase();}); }
   function pdate(iso){ if(!iso)return '—'; var p=String(iso).split('-'); if(p.length!==3)return iso; var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return (+p[2])+' '+(mo[(+p[1])-1]||''); }
   // lower = better. cur 0 = clear (green). else green/amber/red by how many of {yesterday,last week} we improved on.
   function colr(c,p,w){ if(c<=0) return 'green'; var imp=(c<p?1:0)+(c<w?1:0); return imp===2?'green':imp===1?'amber':'red'; }
   function arrow(c,b){ var d=c-b; if(d===0) return '<span class="arrow flat">—</span>'; var g=d<0; return '<span class="arrow '+(g?'good':'bad')+'">'+(g?'▼':'▲')+nf(Math.abs(d))+'</span>'; }
 
-  var state={tab:'overview', country:'', sub:'', profile:'', province:'', client:''};
+  var state={tab:'overview', country:[], sub:[], profile:[], province:[], store:[], rep:[], client:[]};
 
   // ---------- re-slicing engine: everything derives from the base grains + active filters ----------
-  // SITES row = [code, name, profile, province, country, subchannel]. s[5] (sub-channel) is the retail
-  // FORMAT from tblSites — CORP / FRANCHISE / FRANCHISE-EXPRESS / HYPER / DC — and is NOT s[2] (Site
-  // profile), which comes from the SDC feed. Both filter independently.
-  function scPass(r){ var s=SITES[r[0]];
-    if(state.country  && s[4]!==state.country)  return false;
-    if(state.sub      && (s[5]||'')!==state.sub) return false;
-    if(state.profile  && s[2]!==state.profile)  return false;
-    if(state.province && s[3]!==state.province) return false;
-    if(state.client   && CLIENT_N[r[1]]!==state.client) return false;
-    return true; }
-  function psPass(r){ var s=SITES[r[0]];
-    if(state.country  && s[4]!==state.country)  return false;
-    if(state.sub      && (s[5]||'')!==state.sub) return false;
-    if(state.profile  && s[2]!==state.profile)  return false;
-    if(state.province && s[3]!==state.province) return false;
-    if(state.client   && CLIENT_N[r[2]]!==state.client) return false;
-    return true; }
+  // SITES row = [code, name, profile, province, country, subchannel, rep, lastVisited]. s[5] (sub-channel) is
+  // the retail FORMAT from tblSites (CORP / FRANCHISE / HYPER / …), NOT s[2] (Site profile, from the SDC feed);
+  // s[6]/s[7] are the rep email + last-visited SAST date from dbo.SentReports (blank if never visited). EVERY
+  // filter is MULTI-select: state.X is an array of picked values, empty = all. inSel = no picks OR value picked.
+  function inSel(sel,v){ return !sel.length || sel.indexOf(v==null?'':v)>=0; }
+  function sPass(s){
+    return inSel(state.country,s[4]) && inSel(state.sub,s[5]||'') && inSel(state.profile,s[2])
+        && inSel(state.province,s[3]) && inSel(state.store,s[0]) && inSel(state.rep,s[6]||''); }
+  function scPass(r){ return sPass(SITES[r[0]]) && inSel(state.client, CLIENT_N[r[1]]); }
+  function psPass(r){ return sPass(SITES[r[0]]) && inSel(state.client, CLIENT_N[r[2]]); }
   function filteredSC(){ return SC.filter(scPass); }
   function filteredPS(){ return PS.filter(psPass); }
   function addArr(acc,a){ for(var i=0;i<acc.length;i++) acc[i]+=(a[i]||0); }
@@ -206,7 +212,7 @@
   }
   function rollupSites(rows){
     var by={}; rows.forEach(function(r){ (by[r[0]]=by[r[0]]||[]).push(r); });
-    return Object.keys(by).map(function(k){ var s=SITES[k],g=sumSC(by[k]); return {code:s[0],name:s[1],profile:s[2],province:s[3],cur:g.cur,prev:g.prev,wk:g.wk}; });
+    return Object.keys(by).map(function(k){ var s=SITES[k],g=sumSC(by[k]); return {code:s[0],name:s[1],profile:s[2],province:s[3],rep:s[6]||'',last:s[7]||'',cur:g.cur,prev:g.prev,wk:g.wk}; });
   }
   // products derive from the product x site grain -> they now respond to every filter
   function rollupProducts(rows){
@@ -217,7 +223,15 @@
       var P=PROD[k]; var o={code:P[0],name:P[1],cur:objPS(c),prev:objPS(p),wk:objPS(w)}; o.cur.sites=o.prev.sites=o.wk.sites=n; return o;
     });
   }
-  function lensLabel(n){ var a=[]; if(state.country)a.push(state.country); if(state.sub)a.push(state.sub); if(state.client)a.push(state.client); if(state.profile)a.push(state.profile); if(state.province)a.push(state.province); return (a.length?a.join(' · '):'Whole portfolio')+' ('+nf(n)+' sites)'; }
+  function lensLabel(n){ var a=[];
+    if(state.country.length)a.push(state.country.join(', '));
+    if(state.sub.length)a.push(state.sub.join(', '));
+    if(state.client.length)a.push(state.client.join(', '));
+    if(state.profile.length)a.push(state.profile.join(', '));
+    if(state.province.length)a.push(state.province.join(', '));
+    if(state.store.length)a.push(state.store.length+' store'+(state.store.length===1?'':'s'));
+    if(state.rep.length)a.push(state.rep.map(prettyRep).join(', '));
+    return (a.length?a.join(' · '):'Whole portfolio')+' ('+nf(n)+' sites)'; }
 
   var CX={};
   function context(){
@@ -241,24 +255,46 @@
   document.getElementById('footer').textContent=['Generated '+(meta.generated||''),nf(objSC(PORT.c).active)+' active lines','lower is better on every KPI','ARIA'].join('  ·  ');
   document.getElementById('tabs').innerHTML=TABS.map(function(tb){return '<button class="tab'+(tb.id==='overview'?' active':'')+'" data-tab="'+tb.id+'">'+esc(tb.t)+'</button>';}).join('');
   var countries=Array.from(new Set(SITES.map(function(s){return s[4];}))).filter(Boolean).sort();
-  var hasSA=countries.indexOf('South Africa')>=0; state.country=hasSA?'South Africa':'';
-  document.getElementById('fCountry').innerHTML='<option value="">All countries</option>'+countries.map(function(c){return '<option'+(c===state.country?' selected':'')+'>'+esc(c)+'</option>';}).join('');
-  // Sub-channel: hidden entirely when the payload carries none (i.e. before the 2026-08-04 proc change),
-  // so an older data pull doesn't show an empty, useless filter.
-  var subs=Array.from(new Set(SITES.map(function(s){return s[5];}))).filter(Boolean).sort();
-  var fSubEl=document.getElementById('fSub');
-  if(subs.length){ fSubEl.innerHTML='<option value="">All sub-channels</option>'+subs.map(function(s){return '<option>'+esc(s)+'</option>';}).join(''); }
-  else if(fSubEl&&fSubEl.parentNode){ fSubEl.parentNode.style.display='none'; }
-  var profs=Array.from(new Set(SITES.map(function(s){return s[2];}))).filter(Boolean).sort();
-  document.getElementById('fProfile').innerHTML='<option value="">All profiles</option>'+profs.map(function(p){return '<option>'+esc(p)+'</option>';}).join('');
-  // Province options follow the selected Country
-  function fillProvince(){
-    var c=state.country, provs=Array.from(new Set(SITES.filter(function(s){return !c||s[4]===c;}).map(function(s){return s[3];}))).filter(Boolean).sort();
-    document.getElementById('fProvince').innerHTML='<option value="">All provinces</option>'+provs.map(function(p){return '<option>'+esc(p)+'</option>';}).join('');
+  var hasSA=countries.indexOf('South Africa')>=0; if(hasSA) state.country=['South Africa'];   // default lens
+
+  function distinctS(fn){ return Array.from(new Set(SITES.map(fn))).filter(function(v){return v!=null&&v!=='';}); }
+  // Every filter is a multi-select. opts() -> [value, label] pairs. Province opts follow the Country picks;
+  // Store/Rep get a search box (long lists). Sub-channel/Client hide when empty / in a single-client report.
+  var FILTERS=[
+    {key:'country',  label:'Country',      opts:function(){return distinctS(function(s){return s[4];}).sort().map(function(v){return [v,v];});}},
+    {key:'sub',      label:'Sub-channel',  hideIfEmpty:true, opts:function(){return distinctS(function(s){return s[5];}).sort().map(function(v){return [v,v];});}},
+    {key:'profile',  label:'Site profile', opts:function(){return distinctS(function(s){return s[2];}).sort().map(function(v){return [v,v];});}},
+    {key:'province', label:'Province',     opts:function(){ var cs=state.country; return Array.from(new Set(SITES.filter(function(s){return !cs.length||cs.indexOf(s[4])>=0;}).map(function(s){return s[3];}))).filter(Boolean).sort().map(function(v){return [v,v];}); }},
+    {key:'store',    label:'Store',        search:true, opts:function(){ return SITES.map(function(s){return [s[0], s[0]+(s[1]?' — '+s[1]:'')];}).sort(function(a,b){return a[0]<b[0]?-1:a[0]>b[0]?1:0;}); }},
+    {key:'rep',      label:'Rep',          search:true, hideIfEmpty:true, opts:function(){ return distinctS(function(s){return s[6];}).sort().map(function(v){return [v, prettyRep(v)];}); }},
+    {key:'client',   label:'Client',       hideInClientMode:true, opts:function(){ return CLIENT_N.slice().sort().map(function(v){return [v,v];}); }}
+  ];
+  function msSummary(f){ var sel=state[f.key]; if(!sel.length) return 'All'; if(sel.length===1){ var o=f.opts().filter(function(x){return x[0]===sel[0];})[0]; return o?o[1]:sel[0]; } return sel.length+' selected'; }
+  function buildOneFilter(f){
+    if(f.hideInClientMode && CLIENT_MODE) return null;
+    var opts=f.opts(); if(f.hideIfEmpty && !opts.length) return null;
+    var d=el('details',{className:'ms'}); d.dataset.key=f.key;
+    var sum=el('summary'); sum.innerHTML='<span class="msl">'+esc(f.label)+':</span> <span class="msv">'+esc(msSummary(f))+'</span>'; d.appendChild(sum);
+    var pop=el('div',{className:'ms-pop'}), listWrap=el('div');
+    if(f.search){ var si=el('input',{className:'msearch',type:'search',placeholder:'Filter '+f.label.toLowerCase()+'…'}); si.addEventListener('input',function(){ var q=si.value.toLowerCase(); listWrap.querySelectorAll('label').forEach(function(l){ l.style.display=(l.getAttribute('data-lab')||'').toLowerCase().indexOf(q)>=0?'':'none'; }); }); pop.appendChild(si); }
+    opts.forEach(function(o){ var lab=el('label'); lab.setAttribute('data-lab',o[1]);
+      var cb=el('input',{type:'checkbox'}); cb.value=o[0]; cb.checked=state[f.key].indexOf(o[0])>=0;
+      cb.addEventListener('change',function(){ var sel=state[f.key],i=sel.indexOf(o[0]); if(cb.checked){ if(i<0) sel.push(o[0]); } else if(i>=0) sel.splice(i,1); onFilterChange(f); });
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(' '+o[1])); listWrap.appendChild(lab); });
+    if(!opts.length) listWrap.appendChild(el('div',{className:'msnone',textContent:'none'}));
+    pop.appendChild(listWrap); d.appendChild(pop); return d;
   }
-  fillProvince();
-  var cnames=CLIENT_N.slice().sort();
-  document.getElementById('fClient').innerHTML='<option value="">All clients</option>'+cnames.map(function(c){return '<option>'+esc(c)+'</option>';}).join('');
+  function refreshSummaries(){ document.querySelectorAll('#filterSlots .ms').forEach(function(d){ var f=FILTERS.filter(function(x){return x.key===d.dataset.key;})[0]; if(f){ var v=d.querySelector('.msv'); if(v) v.textContent=msSummary(f); } }); }
+  function rebuildFilter(key){ var old=document.querySelector('#filterSlots .ms[data-key="'+key+'"]'); if(!old) return; var f=FILTERS.filter(function(x){return x.key===key;})[0]; var nu=buildOneFilter(f); if(nu) old.replaceWith(nu); }
+  function onFilterChange(f){
+    // Province options depend on Country — drop now-invalid province picks and rebuild that dropdown.
+    if(f.key==='country'){ var provOpts=FILTERS.filter(function(x){return x.key==='province';})[0].opts().map(function(o){return o[0];}); state.province=state.province.filter(function(p){return provOpts.indexOf(p)>=0;}); rebuildFilter('province'); }
+    refreshSummaries(); render();
+  }
+  function buildFilters(){ var slot=document.getElementById('filterSlots'); slot.innerHTML=''; FILTERS.forEach(function(f){ var d=buildOneFilter(f); if(d) slot.appendChild(d); }); }
+  buildFilters();
+  // close any open dropdown when clicking outside it
+  document.addEventListener('click',function(e){ document.querySelectorAll('#filterSlots .ms[open]').forEach(function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); }); });
 
   // ---------- cards ----------
   // % of base has its OWN colour scale (independent of the day-to-day trend colour): green <3%, amber <5%, else red.
@@ -311,6 +347,8 @@
     {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS,[actCol(),lostCol()]); }
   function siteCols(){ return [{label:'Site',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
     {label:'Store name',l:true,get:function(e){return esc(e.name||'—');},sort:function(e){return e.name||'';}},
+    {label:'Rep',l:true,get:function(e){return '<span class="nm2">'+esc(prettyRep(e.rep))+'</span>';},sort:function(e){return e.rep||'';}},
+    {label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
     {label:'Province',l:true,get:function(e){return '<span class="nm2">'+esc(e.province||'—')+'</span>';},sort:function(e){return e.province||'';}},
     {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}},actCol()].concat(KPICOLS,[
     {label:'Units/day',get:function(e){return nf(e.cur.lost);},sort:function(e){return e.cur.lost;}}]); }
@@ -331,7 +369,7 @@
       '<span class="sw" style="background:var(--amber)"></span><b>Amber</b> = better than one of them, '+
       '<span class="sw" style="background:var(--red)"></span><b>Red</b> = better than neither (worse or flat on both). '+
       'The card shows today big, with yesterday and last week underneath and the change (▼ fewer is good, ▲ more is bad). The same colours run down every KPI column in the tables. '+
-      'The <b>filters</b> above (Country · Site profile · Province · Client) re-slice everything — cards and all four tables — live. Country defaults to South Africa.'+
+      'The <b>filters</b> above (Country · Sub-channel · Site profile · Province · Store · Rep · Client) re-slice everything — cards and every table — live, and each takes <b>several picks</b>. Country defaults to South Africa.'+
       '<br><br><b>The “% of base” pill</b> has its <b>own</b> colour scale (separate from the trend colour): it shows the KPI as a share of the full range — every site-article combination in scope (all statuses), shown as the <b>base</b> count on the line below the cards. '+
       '<span class="sw" style="background:var(--green)"></span><b>Green</b> under 3%, '+
       '<span class="sw" style="background:var(--amber)"></span><b>Amber</b> 3–5%, '+
@@ -379,6 +417,7 @@
     el.innerHTML='<div class="h2">'+esc(KLAB[key])+' <span class="sub">'+esc(CX.label)+'</span></div><div class="kcards">'+cardHTML(CX.agg,key,KLAB[key])+'</div>';
     var sc=[{label:'Site',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
             {label:'Store name',l:true,get:function(e){return esc(e.name||'—');},sort:function(e){return e.name||'';}},
+            {label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
             {label:'Province',l:true,get:function(e){return '<span class="nm2">'+esc(e.province||'—')+'</span>';},sort:function(e){return e.province||'';}},
             {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}},
             kpiCol(key,KLAB[key]),actCol()];
@@ -401,12 +440,7 @@
   }
 
   document.getElementById('tabs').addEventListener('click',function(e){var t=e.target.closest('.tab');if(!t)return;state.tab=t.getAttribute('data-tab');document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x===t);});render();});
-  document.getElementById('fCountry').addEventListener('change',function(e){state.country=e.target.value;state.province='';fillProvince();document.getElementById('fProvince').value='';render();});
-  document.getElementById('fSub').addEventListener('change',function(e){state.sub=e.target.value;render();});
-  document.getElementById('fProfile').addEventListener('change',function(e){state.profile=e.target.value;render();});
-  document.getElementById('fProvince').addEventListener('change',function(e){state.province=e.target.value;render();});
-  document.getElementById('fClient').addEventListener('change',function(e){state.client=e.target.value;render();});
-  document.getElementById('fClear').addEventListener('click',function(){state.country=(hasSA?'South Africa':'');state.sub='';state.profile='';state.province='';state.client='';document.getElementById('fCountry').value=state.country;document.getElementById('fSub').value='';document.getElementById('fProfile').value='';fillProvince();document.getElementById('fProvince').value='';document.getElementById('fClient').value='';render();});
+  document.getElementById('fClear').addEventListener('click',function(){ state.country=(hasSA?['South Africa']:[]); state.sub=[];state.profile=[];state.province=[];state.store=[];state.rep=[];state.client=[]; buildFilters(); render(); });
 
   document.getElementById('glossaryBody').innerHTML=[
     ['Colours (lower is better)','Each KPI is a count of problems, so fewer is better. We compare today with yesterday and with the same day last week. Green = today is lower than both (or already zero); amber = lower than one; red = lower than neither. The same logic colours both the cards and every KPI number in the tables.'],
@@ -416,7 +450,8 @@
     ['Phantom','Active line with stock but no sale in 60+ days — likely not on the shelf.'],
     ['Negative SOH','On-hand below 0 — impossible figure; a rep counts the shelf to correct the system.'],
     ['Discontinued with SOH','Non-active line still holding stock — clear or return it.'],
-    ['Filters','Country, Site profile, Province and Client re-slice everything live — the cards and all four tables (Province, Client, Site, Product). Country defaults to South Africa; the Province list follows the chosen Country.'],
+    ['Filters','Country, Sub-channel, Site profile, Province, Store, Rep and Client re-slice everything live — the cards and every table. Each filter is multi-select — tick several. Country defaults to South Africa; the Province list follows the chosen countries.'],
+    ['Rep & Last visited','Taken from the store reports ARIA has sent (each store gets its report on its visit day), so “last visited” ≈ the date of the most recent store report and the rep is whoever received it. Blank for a store ARIA has never sent a report for.'],
     ['Flagged products','The product list is built from article × site lines that have at least one problem, so it is the problem list — healthy lines are not shown.'],
     ['Periods','Today = each vendor’s latest date; yesterday = that date − 1; last week = that date − 7. Data updates daily.']
   ].map(function(g){return '<div class="gitem"><b>'+g[0]+'</b><p>'+g[1]+'</p></div>';}).join('');
