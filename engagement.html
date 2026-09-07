@@ -547,8 +547,8 @@ const DATA = __PAYLOAD__;
     const wrap = document.createElement('div'); wrap.className = 'ms';
     const btn = document.createElement('button'); btn.type='button'; btn.className='ms-btn';
     const panel = document.createElement('div'); panel.className='ms-panel'; panel.hidden=true;
-    let search=null;
-    if(opts.searchable){ search=document.createElement('input'); search.type='search'; search.className='ms-search'; search.placeholder='Search…'; panel.appendChild(search); }
+    // Every filter is uniform: a search box, then Select all / Clear, then the checkbox list.
+    const search=document.createElement('input'); search.type='search'; search.className='ms-search'; search.placeholder='Search…'; panel.appendChild(search);
     const actions=document.createElement('div'); actions.className='ms-actions';
     const aAll=document.createElement('a'); aAll.textContent='Select all';
     const aClear=document.createElement('a'); aClear.textContent='Clear';
@@ -594,14 +594,14 @@ const DATA = __PAYLOAD__;
   }
 
   const msDate  = MultiSelect($('msDate'),  'All dates',      {onChange:render});
-  const msScope = MultiSelect($('msScope'), 'All stores',     {searchable:true, onChange:render});
-  const msName  = MultiSelect($('msName'),  'All store names',{searchable:true, onChange:render});
-  const msRecip = MultiSelect($('msRecip'), 'All recipients', {searchable:true, onChange:render});
+  const msScope = MultiSelect($('msScope'), 'All stores',     {onChange:render});
+  const msName  = MultiSelect($('msName'),  'All store names',{onChange:render});
+  const msRecip = MultiSelect($('msRecip'), 'All recipients', {onChange:render});
   const msDomain= MultiSelect($('msDomain'),'All domains',    {onChange:render});
   // Retail sub-channel (CORP / FRANCHISE / FRANCHISE-EXPRESS / HYPER / …).
   const msSub   = MultiSelect($('msSub'),   'All sub-channels',{onChange:render});
   // Province — same tblSites lookup as sub-channel, so it reaches every tab the same way.
-  const msProv  = MultiSelect($('msProv'),  'All provinces',   {searchable:true, onChange:render});
+  const msProv  = MultiSelect($('msProv'),  'All provinces',   {onChange:render});
 
   // ---- ONE global option list per filter, built from every tab's data --------------------------
   // Previously these were rebuilt per tab, which both changed the available options underfoot and

@@ -45,6 +45,9 @@
   .ms[open]>summary{border-color:var(--blue);}
   .ms-pop{position:absolute;z-index:40;top:38px;left:0;min-width:220px;max-width:320px;max-height:300px;overflow:auto;background:var(--card);border:.5px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;}
   .ms-pop .msearch{width:100%;height:30px;border:.5px solid var(--line);border-radius:7px;padding:0 8px;font-family:inherit;font-size:13px;margin:2px 0 6px;}
+  .ms-pop .ms-actions{display:flex;gap:14px;font-size:12px;padding:0 2px 6px;}
+  .ms-pop .ms-actions a{color:var(--blue);cursor:pointer;text-decoration:none;font-weight:600;}
+  .ms-pop .ms-actions a:hover{text-decoration:underline;}
   .ms-pop label{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--ink);}
   .ms-pop label:hover{background:var(--blue-tint);}
   .ms-pop input[type=checkbox]{width:15px;height:15px;accent-color:var(--blue);flex:none;}
@@ -258,15 +261,15 @@
   var hasSA=countries.indexOf('South Africa')>=0; if(hasSA) state.country=['South Africa'];   // default lens
 
   function distinctS(fn){ return Array.from(new Set(SITES.map(fn))).filter(function(v){return v!=null&&v!=='';}); }
-  // Every filter is a multi-select. opts() -> [value, label] pairs. Province opts follow the Country picks;
-  // Store/Rep get a search box (long lists). Sub-channel/Client hide when empty / in a single-client report.
+  // Every filter is a uniform multi-select: search box + Select all / Clear + checkbox list. opts() -> [value,
+  // label] pairs. Province opts follow the Country picks; Sub-channel/Rep/Client hide when empty / single-client.
   var FILTERS=[
     {key:'country',  label:'Country',      opts:function(){return distinctS(function(s){return s[4];}).sort().map(function(v){return [v,v];});}},
     {key:'sub',      label:'Sub-channel',  hideIfEmpty:true, opts:function(){return distinctS(function(s){return s[5];}).sort().map(function(v){return [v,v];});}},
     {key:'profile',  label:'Site profile', opts:function(){return distinctS(function(s){return s[2];}).sort().map(function(v){return [v,v];});}},
     {key:'province', label:'Province',     opts:function(){ var cs=state.country; return Array.from(new Set(SITES.filter(function(s){return !cs.length||cs.indexOf(s[4])>=0;}).map(function(s){return s[3];}))).filter(Boolean).sort().map(function(v){return [v,v];}); }},
-    {key:'store',    label:'Store',        search:true, opts:function(){ return SITES.map(function(s){return [s[0], s[0]+(s[1]?' — '+s[1]:'')];}).sort(function(a,b){return a[0]<b[0]?-1:a[0]>b[0]?1:0;}); }},
-    {key:'rep',      label:'Rep',          search:true, hideIfEmpty:true, opts:function(){ return distinctS(function(s){return s[6];}).sort().map(function(v){return [v, prettyRep(v)];}); }},
+    {key:'store',    label:'Store',        opts:function(){ return SITES.map(function(s){return [s[0], s[0]+(s[1]?' — '+s[1]:'')];}).sort(function(a,b){return a[0]<b[0]?-1:a[0]>b[0]?1:0;}); }},
+    {key:'rep',      label:'Rep',          hideIfEmpty:true, opts:function(){ return distinctS(function(s){return s[6];}).sort().map(function(v){return [v, prettyRep(v)];}); }},
     {key:'client',   label:'Client',       hideInClientMode:true, opts:function(){ return CLIENT_N.slice().sort().map(function(v){return [v,v];}); }}
   ];
   function msSummary(f){ var sel=state[f.key]; if(!sel.length) return 'All'; if(sel.length===1){ var o=f.opts().filter(function(x){return x[0]===sel[0];})[0]; return o?o[1]:sel[0]; } return sel.length+' selected'; }
@@ -276,7 +279,15 @@
     var d=el('details',{className:'ms'}); d.dataset.key=f.key;
     var sum=el('summary'); sum.innerHTML='<span class="msl">'+esc(f.label)+':</span> <span class="msv">'+esc(msSummary(f))+'</span>'; d.appendChild(sum);
     var pop=el('div',{className:'ms-pop'}), listWrap=el('div');
-    if(f.search){ var si=el('input',{className:'msearch',type:'search',placeholder:'Filter '+f.label.toLowerCase()+'…'}); si.addEventListener('input',function(){ var q=si.value.toLowerCase(); listWrap.querySelectorAll('label').forEach(function(l){ l.style.display=(l.getAttribute('data-lab')||'').toLowerCase().indexOf(q)>=0?'':'none'; }); }); pop.appendChild(si); }
+    // Uniform across every filter: a search box (narrows the list) + a Select all / Clear row, then the checkboxes.
+    var si=el('input',{className:'msearch',type:'search',placeholder:'Filter '+f.label.toLowerCase()+'…'});
+    si.addEventListener('input',function(){ var q=si.value.toLowerCase(); listWrap.querySelectorAll('label').forEach(function(l){ l.style.display=(l.getAttribute('data-lab')||'').toLowerCase().indexOf(q)>=0?'':'none'; }); });
+    pop.appendChild(si);
+    var acts=el('div',{className:'ms-actions'}), aAll=el('a',{textContent:'Select all'}), aClr=el('a',{textContent:'Clear'});
+    // Select all obeys the current search text (only the visible options); Clear drops just this filter's picks.
+    aAll.addEventListener('click',function(){ var q=si.value.toLowerCase(); opts.forEach(function(o){ if((!q||(o[1]||'').toLowerCase().indexOf(q)>=0) && state[f.key].indexOf(o[0])<0) state[f.key].push(o[0]); }); listWrap.querySelectorAll('input[type=checkbox]').forEach(function(cb){ if(state[f.key].indexOf(cb.value)>=0) cb.checked=true; }); onFilterChange(f); });
+    aClr.addEventListener('click',function(){ state[f.key]=[]; listWrap.querySelectorAll('input[type=checkbox]').forEach(function(cb){ cb.checked=false; }); onFilterChange(f); });
+    acts.appendChild(aAll); acts.appendChild(aClr); pop.appendChild(acts);
     opts.forEach(function(o){ var lab=el('label'); lab.setAttribute('data-lab',o[1]);
       var cb=el('input',{type:'checkbox'}); cb.value=o[0]; cb.checked=state[f.key].indexOf(o[0])>=0;
       cb.addEventListener('change',function(){ var sel=state[f.key],i=sel.indexOf(o[0]); if(cb.checked){ if(i<0) sel.push(o[0]); } else if(i>=0) sel.splice(i,1); onFilterChange(f); });
