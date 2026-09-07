@@ -84,12 +84,26 @@
   .pc-why-in::placeholder{color:var(--mute-2);}
   .pc-why-in:focus{outline:none;border-color:#E8A400;}
 
-  /* Client filter */
+  /* Client filter — uniform multi-select: search + Select all / Clear + checkbox list */
   .filterbar{padding:12px 14px 2px;}
-  .field{display:flex;align-items:center;gap:10px;background:var(--card);border:.5px solid #DFE3E8;
-    border-radius:10px;padding:0 12px;height:42px;}
-  .field .flabel{font-size:10.5px;color:var(--mute-2);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
-  .field select{flex:1;border:0;outline:0;background:none;appearance:none;-webkit-appearance:none;-moz-appearance:none;font-size:13.5px;font-family:inherit;color:var(--ink);height:100%;min-width:0;}
+  .msf{position:relative;}
+  .msf-btn{display:flex;align-items:center;gap:10px;width:100%;background:var(--card);border:.5px solid #DFE3E8;
+    border-radius:10px;padding:0 12px;height:42px;font-family:inherit;cursor:pointer;text-align:left;}
+  .msf-btn .flabel{font-size:10.5px;color:var(--mute-2);text-transform:uppercase;letter-spacing:.05em;font-weight:600;flex-shrink:0;}
+  .msf-val{flex:1;font-size:13.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .msf-btn>svg{flex-shrink:0;}
+  .msf-pop{position:absolute;z-index:20;left:0;right:0;top:46px;background:var(--card);border:.5px solid #DFE3E8;
+    border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);padding:8px;display:flex;flex-direction:column;gap:7px;}
+  .msf-pop[hidden]{display:none;}
+  .msf-search{border:.5px solid #DFE3E8;border-radius:8px;height:34px;padding:0 10px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--paper);outline:0;}
+  .msf-actions{display:flex;gap:16px;font-size:12.5px;padding:0 2px;}
+  .msf-actions a{color:var(--blue);cursor:pointer;font-weight:600;}
+  .msf-actions a:active{opacity:.55;}
+  .msf-list{max-height:230px;overflow-y:auto;display:flex;flex-direction:column;}
+  .msf-opt{display:flex;align-items:center;gap:9px;padding:7px 6px;font-size:13.5px;color:var(--ink);cursor:pointer;}
+  .msf-opt input{width:18px;height:18px;flex:none;accent-color:var(--blue);margin:0;}
+  .msf-opt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .msf-empty{color:var(--mute-2);font-size:12px;padding:6px;}
 
   /* KPI cards (double as tabs) */
   .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px 6px;}
@@ -215,11 +229,18 @@
   <div class="pb-check" id="pbCheck" hidden></div>
 
   <div class="filterbar">
-    <label class="field">
-      <span class="flabel">Client</span>
-      <select id="client"></select>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A626C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
-    </label>
+    <div class="msf" id="clientMs">
+      <button type="button" class="msf-btn" id="clientBtn" aria-haspopup="true" aria-expanded="false">
+        <span class="flabel">Client</span>
+        <span class="msf-val" id="clientVal">All clients</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A626C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <div class="msf-pop" id="clientPop" hidden>
+        <input type="search" class="msf-search" id="clientSearch" placeholder="Search client" autocomplete="off">
+        <div class="msf-actions"><a id="clientAll">Select all</a><a id="clientClear">Clear</a></div>
+        <div class="msf-list" id="clientList"></div>
+      </div>
+    </div>
   </div>
 
   <div class="cards" id="cards"></div>
@@ -494,7 +515,7 @@
   function persist(){ try{ window.localStorage.setItem(STKEY, JSON.stringify(Array.from(done))); }catch(e){} }
   function keyOf(r){ return String(r.id || (String(r.desc||'')+'|'+String(r.barcode||''))); }
 
-  var state = { view:'oos', q:'', sort:'urgent', client:'', open:null, compOpen:{}, checkOpen:false };
+  var state = { view:'oos', q:'', sort:'urgent', client:[], open:null, compOpen:{}, checkOpen:false };
 
   // ---- Client list ----
   var CLIENTS = (function(){ var s={}; ALL.forEach(function(r){ if(r.vendor) s[r.vendor]=1; }); return Object.keys(s).sort(); })();
@@ -502,7 +523,7 @@
   // ---- Buckets for the current client ----
   var buckets={}, viewAll=[];
   function rebuild(){
-    var pool = state.client ? ALL.filter(function(r){return r.vendor===state.client;}) : ALL;
+    var pool = state.client.length ? ALL.filter(function(r){return state.client.indexOf(r.vendor)>=0;}) : ALL;
     buckets = {oos:[],low_cover:[],phantom:[],negative:[],discontinued:[]};
     pool.forEach(function(r){ cats(r).forEach(function(k){ buckets[k].push(r); }); });
     viewAll = pool.slice();
@@ -517,9 +538,7 @@
      meta.week_ending_pretty ? ('Date of data '+meta.week_ending_pretty) : '',
      meta.generated ? ('Generated '+meta.generated) : ''
     ].filter(Boolean).join(' · ');
-  document.getElementById('client').innerHTML =
-    '<option value="">All clients ('+ALL.length+')</option>' +
-    CLIENTS.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+  // Client filter is the multi-select widget wired in the Events section (search + Select all / Clear + checkboxes).
   document.getElementById('footer').textContent =
     [ activeCount()+' active', ALL.length+' total' ].filter(Boolean).join(' · ');   // dates now shown in the header
 
@@ -767,9 +786,40 @@
     var b=e.target.closest('.card'); if(!b) return;
     state.view=b.getAttribute('data-view'); state.open=null; renderCards(); renderList();
   });
-  document.getElementById('client').addEventListener('change', function(e){
-    state.client=e.target.value; state.open=null; refresh();
-  });
+  // Client filter — uniform multi-select (search + Select all / Clear + checkbox list). Selecting clients
+  // re-slices the KPI cards + every list; the popup stays open so several can be picked in a row.
+  (function(){
+    var btn=document.getElementById('clientBtn'), pop=document.getElementById('clientPop'),
+        val=document.getElementById('clientVal'), listEl=document.getElementById('clientList'),
+        si=document.getElementById('clientSearch');
+    function summary(){ var n=state.client.length; val.textContent = n===0 ? 'All clients' : (n===1 ? state.client[0] : n+' selected'); }
+    function draw(){
+      var q=(si.value||'').toLowerCase();
+      var vis=CLIENTS.filter(function(c){ return !q || c.toLowerCase().indexOf(q)>=0; });
+      listEl.innerHTML = vis.length
+        ? vis.map(function(c){ return '<label class="msf-opt"><input type="checkbox" value="'+esc(c)+'"'+(state.client.indexOf(c)>=0?' checked':'')+'><span>'+esc(c)+'</span></label>'; }).join('')
+        : '<div class="msf-empty">No matches</div>';
+    }
+    function apply(){ state.open=null; refresh(); summary(); }
+    function open(o){ pop.hidden=!o; btn.setAttribute('aria-expanded', o?'true':'false'); if(o){ draw(); si.focus(); } }
+    btn.addEventListener('click', function(e){ e.stopPropagation(); open(pop.hidden); });
+    pop.addEventListener('click', function(e){ e.stopPropagation(); });
+    si.addEventListener('input', draw);
+    listEl.addEventListener('change', function(e){
+      var cb=e.target.closest('input[type=checkbox]'); if(!cb) return;
+      var c=cb.value, i=state.client.indexOf(c);
+      if(cb.checked){ if(i<0) state.client.push(c); } else if(i>=0) state.client.splice(i,1);
+      apply();
+    });
+    document.getElementById('clientAll').addEventListener('click', function(){
+      var q=(si.value||'').toLowerCase();
+      CLIENTS.forEach(function(c){ if((!q||c.toLowerCase().indexOf(q)>=0) && state.client.indexOf(c)<0) state.client.push(c); });
+      draw(); apply();
+    });
+    document.getElementById('clientClear').addEventListener('click', function(){ state.client=[]; draw(); apply(); });
+    document.addEventListener('click', function(){ if(!pop.hidden) open(false); });
+    summary();
+  })();
   document.getElementById('search').addEventListener('input', function(e){
     state.q=e.target.value.trim(); state.open=null; renderList();
   });
