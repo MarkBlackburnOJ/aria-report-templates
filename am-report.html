@@ -75,22 +75,20 @@
   .kcard .info{flex:none;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--mute);font-size:11px;font-weight:700;line-height:16px;text-align:center;cursor:pointer;padding:0;font-family:inherit;}
   .kcard .info:hover{color:var(--blue);border-color:var(--blue);}
   .kcard .kv{font-size:29px;font-weight:700;line-height:1;margin:6px 0 5px;letter-spacing:-.01em;}
-  /* % of base — its own colour scale (green <3%, amber <5%, else red), bordered so it shows on a same-colour card */
-  .kpct{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid;margin:0 0 9px;}
-  .kpct.green{background:var(--green-tint);color:var(--green-text);border-color:var(--green);}
-  .kpct.amber{background:var(--amber-tint);color:var(--amber-deep);border-color:var(--amber);}
-  .kpct.red{background:var(--red-tint);color:var(--red-text);border-color:var(--red);}
+  .kcard .kh{font-size:11.5px;font-weight:600;color:var(--mute);margin:0 0 7px;}
   /* small colour reminder shown above every table */
   .tlegend{font-size:10.5px;color:var(--mute-2);margin:0 0 7px;line-height:1.5;}
   .tlegend .ld{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px;margin:0 3px 0 9px;}
   .tlegend .ld:first-child{margin-left:0;}
-  .tlegend .ld.green{background:var(--green);} .tlegend .ld.amber{background:var(--amber);} .tlegend .ld.red{background:var(--red);}
+  .tlegend .ld.green{background:var(--green);} .tlegend .ld.amber{background:var(--amber);} .tlegend .ld.red{background:var(--red);} .tlegend .ld.none{background:var(--mute-2);}
   .kcard.green{border-left-color:var(--green);background:var(--green-tint);} .kcard.green .kv{color:var(--green-deep);}
   .kcard.amber{border-left-color:var(--amber);background:var(--amber-tint);} .kcard.amber .kv{color:var(--amber-deep);}
   .kcard.red{border-left-color:var(--red);background:var(--red-tint);} .kcard.red .kv{color:var(--red-deep);}
-  .dl{display:flex;justify-content:space-between;font-size:11.5px;padding:2px 0;}
-  .dl .dk{color:var(--mute);} .dl .dv{font-weight:600;} .dl .dn{font-weight:700;margin-left:5px;}
-  .good{color:var(--green-text);} .bad{color:var(--red-text);} .flat{color:var(--mute-2);}
+  /* no 30-day data: neutral grey, never red — a missing load must not read as "worse" */
+  .kcard.none{border-left-color:var(--mute-2);background:#F1F2F4;} .kcard.none .kv{color:var(--ink);}
+  .dl{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11.5px;padding:2px 0;}
+  .dl .dk{color:var(--mute);} .dl .dr{white-space:nowrap;} .dl .dv{font-weight:600;} .dl .dn{font-weight:700;margin-left:5px;}
+  .flat{color:var(--mute-2);}
 
   .ctxline{margin:12px 0 2px;font-size:13px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:11px 15px;line-height:1.7;}
   .ctxline b{font-weight:700;}
@@ -111,7 +109,13 @@
   .chip.green{background:var(--green-tint);color:var(--green-text);}
   .chip.amber{background:var(--amber-tint);color:var(--amber-deep);}
   .chip.red{background:var(--red-tint);color:var(--red-text);}
-  .arrow{font-size:11px;font-weight:700;margin-left:4px;} .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:#EEF0F3;color:var(--mute);}
+  .chip.none{background:#EEF0F3;color:var(--mute);}
+  /* arrows are direction only (neutral ink) — colour lives solely in the 30-day comparison */
+  .arrow{font-size:11px;font-weight:700;margin-left:4px;color:var(--mute);} .arrow.flat{color:var(--mute-2);}
+  thead th .thd{display:block;font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--mute-2);margin-top:1px;}
+  .stalebar{background:var(--amber-tint);border-bottom:.5px solid #EBD9A8;color:var(--amber-deep);font-size:12.5px;line-height:1.5;padding:9px 26px;}
+  .stalebar b{font-weight:700;}
+  .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:#EEF0F3;color:var(--mute);}
 
   footer{padding:18px 24px 30px;text-align:center;font-size:11.5px;color:var(--mute-2);}
   .overlay{position:fixed;inset:0;background:rgba(20,25,33,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
@@ -132,6 +136,7 @@
       <button class="ibtn" id="glossaryBtn" type="button">How it's calculated</button>
     </div>
   </header>
+  <div class="stalebar" id="stale" hidden></div>
   <div class="tabs" id="tabs"></div>
   <div class="filterbar" id="filterbar">
     <span id="filterSlots" style="display:contents"></span>
@@ -166,24 +171,54 @@
   var KLAB={oos:'Out of stock',low:'Low Stock Cover',phantom:'Phantom',neg:'Negative SOH',disc:'Discontinued with SOH'};
   var TABS=[{id:'overview',t:'Overview'},{id:'clients',t:'By Client'},{id:'sites',t:'By Site'},{id:'products',t:'By Product'},{id:'siteproduct',t:'Site × Product'},
             {id:'k_oos',t:'Out of stock',k:'oos'},{id:'k_low',t:'Low Stock Cover',k:'low'},{id:'k_phantom',t:'Phantom',k:'phantom'},{id:'k_neg',t:'Negative SOH',k:'neg'},{id:'k_disc',t:'Discontinued with SOH',k:'disc'}];
-  if(CLIENT_MODE) TABS=TABS.filter(function(t){return t.id!=='clients';});   // single client: no By-Client tab
+  // Single client: no By-Client tab, and no Site × Product tab. Drop the TAB only — paneSiteProduct and its
+  // dispatch branch in render() stay for the portfolio, and filteredPS() also feeds By Product. The dispatch's
+  // final else is paneProducts(), so a surviving tab whose branch was removed would silently render By Product.
+  if(CLIENT_MODE) TABS=TABS.filter(function(t){return t.id!=='clients' && t.id!=='siteproduct';});
 
   function nf(x){ return (x==null?0:Math.round(x)).toLocaleString('en-ZA'); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function el(tag,props){ var e=document.createElement(tag); if(props) for(var k in props){ if(k==='className')e.className=props[k]; else if(k==='textContent')e.textContent=props[k]; else if(k==='type')e.type=props[k]; else e.setAttribute(k,props[k]); } return e; }
   function prettyRep(email){ if(!email) return '—'; var p=String(email).split('@')[0].replace(/[._-]+/g,' ').trim(); return p.replace(/\b\w/g,function(c){return c.toUpperCase();}); }
-  function pdate(iso){ if(!iso)return '—'; var p=String(iso).split('-'); if(p.length!==3)return iso; var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return (+p[2])+' '+(mo[(+p[1])-1]||''); }
-  // lower = better. cur 0 = clear (green). else green/amber/red by how many of {yesterday,last week} we improved on.
-  function colr(c,p,w){ if(c<=0) return 'green'; var imp=(c<p?1:0)+(c<w?1:0); return imp===2?'green':imp===1?'amber':'red'; }
-  function arrow(c,b){ var d=c-b; if(d===0) return '<span class="arrow flat">—</span>'; var g=d<0; return '<span class="arrow '+(g?'good':'bad')+'">'+(g?'▼':'▲')+nf(Math.abs(d))+'</span>'; }
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function isoParts(iso){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'')); return m?[+m[1],+m[2],+m[3]]:null; }
+  var CUR_Y=(isoParts(meta.current)||[0])[0];
+  // The year is added whenever it differs from the headline's — a stale vendor's "7 Oct" would otherwise read as this October.
+  function pdate(iso){ if(!iso)return '—'; var p=isoParts(iso); if(!p)return String(iso); return p[2]+' '+(MON[p[1]-1]||'')+(p[0]!==CUR_Y?' '+p[0]:''); }
+  function dayNo(p){ return p?Math.round(Date.UTC(p[0],p[1]-1,p[2])/864e5):null; }
+  // Run date (SAST) from meta.generated. The engine currently stamps it "10 Sep 2026 at 13:00" (DateTime.Now on the SAST
+  // server), not ISO, so both shapes parse. Unparseable or absent -> null, and the headline says "Latest": we never
+  // print "Yesterday" without proof, because a late feed (T-2) under that word misleads a rep.
+  function runParts(g){ g=String(g||''); var p=isoParts(g); if(p) return p;
+    var m=/^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})/.exec(g); if(!m) return null;
+    var mi=MON.indexOf(m[2].charAt(0).toUpperCase()+m[2].slice(1).toLowerCase()); return mi<0?null:[+m[3],mi+1,+m[1]]; }
+  // D1 label rule — AmEmailBuilder computes the same thing for the email header; the two must agree or the email and
+  // the report it links to name the same day differently. "Yesterday" only when latest data == run date − 1 day.
+  var IS_YEST=(function(){ var c=dayNo(isoParts(meta.current)), r=dayNo(runParts(meta.generated)); return c!=null&&r!=null&&r-c===1; })();
+  var HEAD_LAB=IS_YEST?'Yesterday':'Latest', PREV_LAB=IS_YEST?'Day before yesterday':'Day before';
+  // An absent period arrives as an empty meta date (old engine: no day30ago at all). Its values are MISSING, shown
+  // as "—" — never 0, because a missed feed day printed as 0 reads as a clean shelf.
+  var HASP=!!meta.previous, HASW=!!meta.weekago, HAS30=!!meta.day30ago;
+  // D2 colour rule, against 30 days ago ONLY. Twin: AmEmailBuilder.Trend — change one, change both, or the email and
+  // the report colour the same number differently. Exact equality on the displayed integer, no tolerance band.
+  // 0 is always green (0 vs 0 too, else every clean line goes yellow); no 30-day data is grey, never red.
+  function colr(c,m){ c=Math.round(c||0); if(c===0) return 'green'; if(m==null) return 'none'; m=Math.round(m); return c<m?'green':c>m?'red':'amber'; }
+  // direction only, neutral ink: the baseline differs per row (day before / last week / 30 days), so a colour here
+  // would contradict the card colour, which is set by the 30-day point alone.
+  function arrow(c,b){ if(b==null) return ''; var d=Math.round(c)-Math.round(b); if(d===0) return '<span class="arrow flat">—</span>'; return '<span class="arrow">'+(d<0?'▼':'▲')+nf(Math.abs(d))+'</span>'; }
+  function pk(o,key){ return o?(o[key]||0):null; }   // period value; null = that period is missing
 
   var state={tab:'overview', country:[], sub:[], profile:[], province:[], store:[], rep:[], client:[]};
 
   // ---------- re-slicing engine: everything derives from the base grains + active filters ----------
   // SITES row = [code, name, profile, province, country, subchannel, rep, lastVisited]. s[5] (sub-channel) is
   // the retail FORMAT from tblSites (CORP / FRANCHISE / HYPER / …), NOT s[2] (Site profile, from the SDC feed);
-  // s[6]/s[7] are the rep email + last-visited SAST date from dbo.SentReports (blank if never visited). EVERY
-  // filter is MULTI-select: state.X is an array of picked values, empty = all. inSel = no picks OR value picked.
+  // s[6]/s[7] are the rep email + last-visited SAST date from dbo.SentReports (blank if never visited) — PORTFOLIO
+  // ONLY: a client payload is published on a public path, so the engine projects its site rows to 6 fields and
+  // s[6]/s[7] are undefined there (hence the ||'' below). EVERY filter is MULTI-select: state.X is an array of
+  // picked values, empty = all. inSel = no picks OR value picked.
+  // Period arrays: sc row = [site, client, cur, prev, wk, mo?]; ps row = [site, product, client, cur, prev, wk, mo?].
+  // The trailing 30-day array is appended by the new engine and absent on the old one.
   function inSel(sel,v){ return !sel.length || sel.indexOf(v==null?'':v)>=0; }
   function sPass(s){
     return inSel(state.country,s[4]) && inSel(state.sub,s[5]||'') && inSel(state.profile,s[2])
@@ -195,35 +230,40 @@
   function addArr(acc,a){ for(var i=0;i<acc.length;i++) acc[i]+=(a[i]||0); }
   function zero(n){ var z=[]; for(var i=0;i<n;i++) z.push(0); return z; }
 
-  // sum a list of sc rows -> {cur,prev,wk} objects; .sites overwritten with DISTINCT site count
+  // sum a list of sc rows -> {cur,prev,wk,mo}; a period that is missing for the whole run is null, never zeros.
+  // Within a present 30-day period a row without its array is a GENUINE zero (the proc emits DAY30AGO only when
+  // every vendor has its snapshot, so an absent row means the line did not exist then) — hence r[5]||[].
+  // .sites is overwritten with the DISTINCT site count on every present period, mo included.
   function sumSC(rows){
-    var c=zero(KSC.length),p=zero(KSC.length),w=zero(KSC.length),seen={},n=0;
-    for(var i=0;i<rows.length;i++){ var r=rows[i]; addArr(c,r[2]); addArr(p,r[3]); addArr(w,r[4]); if(!seen[r[0]]){seen[r[0]]=1;n++;} }
-    var O={cur:objSC(c),prev:objSC(p),wk:objSC(w)}; O.cur.sites=O.prev.sites=O.wk.sites=n; return O;
+    var c=zero(KSC.length),p=zero(KSC.length),w=zero(KSC.length),m=zero(KSC.length),seen={},n=0;
+    for(var i=0;i<rows.length;i++){ var r=rows[i]; addArr(c,r[2]); addArr(p,r[3]||[]); addArr(w,r[4]||[]); addArr(m,r[5]||[]); if(!seen[r[0]]){seen[r[0]]=1;n++;} }
+    var O={cur:objSC(c),prev:HASP?objSC(p):null,wk:HASW?objSC(w):null,mo:HAS30?objSC(m):null};
+    [O.cur,O.prev,O.wk,O.mo].forEach(function(o){ if(o) o.sites=n; }); return O;
   }
   function rollupClients(rows){
     var by={}; rows.forEach(function(r){ (by[r[1]]=by[r[1]]||[]).push(r); });
-    return Object.keys(by).map(function(k){ var g=sumSC(by[k]); return {name:CLIENT_N[k],cur:g.cur,prev:g.prev,wk:g.wk}; });
+    return Object.keys(by).map(function(k){ var g=sumSC(by[k]); return {name:CLIENT_N[k],cur:g.cur,prev:g.prev,wk:g.wk,mo:g.mo}; });
   }
   function rollupProvince(rows){
     var by={}; rows.forEach(function(r){ var pv=SITES[r[0]][3]||'—'; (by[pv]=by[pv]||[]).push(r); });
-    return Object.keys(by).map(function(k){ var g=sumSC(by[k]); return {name:k,cur:g.cur,prev:g.prev,wk:g.wk}; });
+    return Object.keys(by).map(function(k){ var g=sumSC(by[k]); return {name:k,cur:g.cur,prev:g.prev,wk:g.wk,mo:g.mo}; });
   }
   function rollupProfile(rows){
     var by={}; rows.forEach(function(r){ var pf=SITES[r[0]][2]||'—'; (by[pf]=by[pf]||[]).push(r); });
-    return Object.keys(by).map(function(k){ var g=sumSC(by[k]); return {name:k,cur:g.cur,prev:g.prev,wk:g.wk}; });
+    return Object.keys(by).map(function(k){ var g=sumSC(by[k]); return {name:k,cur:g.cur,prev:g.prev,wk:g.wk,mo:g.mo}; });
   }
   function rollupSites(rows){
     var by={}; rows.forEach(function(r){ (by[r[0]]=by[r[0]]||[]).push(r); });
-    return Object.keys(by).map(function(k){ var s=SITES[k],g=sumSC(by[k]); return {code:s[0],name:s[1],profile:s[2],province:s[3],rep:s[6]||'',last:s[7]||'',cur:g.cur,prev:g.prev,wk:g.wk}; });
+    return Object.keys(by).map(function(k){ var s=SITES[k],g=sumSC(by[k]); return {code:s[0],name:s[1],profile:s[2],province:s[3],rep:s[6]||'',last:s[7]||'',cur:g.cur,prev:g.prev,wk:g.wk,mo:g.mo}; });
   }
   // products derive from the product x site grain -> they now respond to every filter
   function rollupProducts(rows){
     var by={}; rows.forEach(function(r){ (by[r[1]]=by[r[1]]||[]).push(r); });
     return Object.keys(by).map(function(k){
-      var grp=by[k],c=zero(KPS.length),p=zero(KPS.length),w=zero(KPS.length),seen={},n=0;
-      for(var i=0;i<grp.length;i++){ var r=grp[i]; addArr(c,r[3]); addArr(p,r[4]); addArr(w,r[5]); if(!seen[r[0]]){seen[r[0]]=1;n++;} }
-      var P=PROD[k]; var o={code:P[0],name:P[1],cur:objPS(c),prev:objPS(p),wk:objPS(w)}; o.cur.sites=o.prev.sites=o.wk.sites=n; return o;
+      var grp=by[k],c=zero(KPS.length),p=zero(KPS.length),w=zero(KPS.length),m=zero(KPS.length),seen={},n=0;
+      for(var i=0;i<grp.length;i++){ var r=grp[i]; addArr(c,r[3]); addArr(p,r[4]||[]); addArr(w,r[5]||[]); addArr(m,r[6]||[]); if(!seen[r[0]]){seen[r[0]]=1;n++;} }
+      var P=PROD[k]; var o={code:P[0],name:P[1],cur:objPS(c),prev:HASP?objPS(p):null,wk:HASW?objPS(w):null,mo:HAS30?objPS(m):null};
+      [o.cur,o.prev,o.wk,o.mo].forEach(function(x){ if(x) x.sites=n; }); return o;
     });
   }
   function lensLabel(n){ var a=[];
@@ -246,7 +286,6 @@
   if(CLIENT_MODE){
     document.querySelector('header h1').textContent=CLIENT_MODE;
     document.querySelector('header .eyebrow').textContent='Account Manager · Client Report';
-    var fcl=document.getElementById('fClient'); if(fcl&&fcl.parentNode) fcl.parentNode.style.display='none';
   }
   if(BRANDS[CHANNEL]){
     var _b=BRANDS[CHANNEL];
@@ -254,22 +293,35 @@
     var _lg=document.getElementById('brandLogo'); if(_lg){ _lg.src='https://MarkBlackburnOJ.github.io/StoreReports/assets/'+_b.logo+'?v=1'; _lg.alt=_b.name; _lg.style.display=''; }
     try{ document.title=_b.name+' — Account Manager Report'; }catch(e){}
   }
-  document.getElementById('meta').textContent=(CLIENT_MODE?[meta.sites+' sites',meta.products+' flagged products','Today '+pdate(meta.current)+' · yest '+pdate(meta.previous)+' · last wk '+pdate(meta.weekago)]:[meta.sites+' sites',meta.clients+' clients',meta.products+' flagged products','Today '+pdate(meta.current)+' · yest '+pdate(meta.previous)+' · last wk '+pdate(meta.weekago)]).join('  ·  ');
-  document.getElementById('footer').textContent=['Generated '+(meta.generated||''),nf(objSC(PORT.c).active)+' active lines','lower is better on every KPI','ARIA'].join('  ·  ');
+  var PERIODS=HEAD_LAB+' '+pdate(meta.current)+' · '+PREV_LAB.toLowerCase()+' '+(HASP?pdate(meta.previous):'—')+
+    ' · same day last week '+(HASW?pdate(meta.weekago):'—')+' · 30 days ago '+(HAS30?pdate(meta.day30ago):'—');
+  document.getElementById('meta').textContent=(CLIENT_MODE?[meta.sites+' sites',meta.products+' flagged products']:[meta.sites+' sites',meta.clients+' clients',meta.products+' flagged products']).concat([PERIODS]).join('  ·  ');
+  // D7: a PNP vendor whose last load is >7 days behind the newest vendor is dropped by the proc from EVERY period
+  // (it used to be read on its own stale date and counted as current). Name each one so the gap is visible rather
+  // than silent. The engine scopes the list (all for the portfolio, own vendors for a client). Absent — old engine,
+  // or SAMS, which has no per-vendor anchor — renders nothing.
+  var STALE=Array.isArray(meta.stale)?meta.stale.filter(Boolean):[];
+  if(STALE.length){ var _sb=document.getElementById('stale');
+    _sb.innerHTML='<b>Not in these figures:</b> '+STALE.map(function(v){ return esc(v.client||'—')+' — vendor '+esc(v.vendor||'?')+(v.name?' ('+esc(v.name)+')':'')+
+      ', last data '+esc(pdate(v.last))+(v.lines!=null?' (~'+nf(v.lines)+' site-article lines)':''); }).join('; ')+
+      '. '+(STALE.length===1?'This vendor has':'These vendors have')+' sent no new data for more than 7 days, so '+(STALE.length===1?'it is':'they are')+' excluded from every figure and every period in this report.';
+    _sb.hidden=false; }
+  document.getElementById('footer').textContent=[meta.generated?'Generated '+meta.generated:'',nf(objSC(PORT.c).active)+' active lines','lower is better on every KPI','ARIA'].filter(Boolean).join('  ·  ');
   document.getElementById('tabs').innerHTML=TABS.map(function(tb){return '<button class="tab'+(tb.id==='overview'?' active':'')+'" data-tab="'+tb.id+'">'+esc(tb.t)+'</button>';}).join('');
   var countries=Array.from(new Set(SITES.map(function(s){return s[4];}))).filter(Boolean).sort();
   var hasSA=countries.indexOf('South Africa')>=0; if(hasSA) state.country=['South Africa'];   // default lens
 
   function distinctS(fn){ return Array.from(new Set(SITES.map(fn))).filter(function(v){return v!=null&&v!=='';}); }
   // Every filter is a uniform multi-select: search box + Select all / Clear + checkbox list. opts() -> [value,
-  // label] pairs. Province opts follow the Country picks; Sub-channel/Rep/Client hide when empty / single-client.
+  // label] pairs. Province opts follow the Country picks; Sub-channel/Rep hide when empty; Rep and Client hide on a
+  // client report (Rep is portfolio-only data — see the SITES note above).
   var FILTERS=[
     {key:'country',  label:'Country',      opts:function(){return distinctS(function(s){return s[4];}).sort().map(function(v){return [v,v];});}},
     {key:'sub',      label:'Sub-channel',  hideIfEmpty:true, opts:function(){return distinctS(function(s){return s[5];}).sort().map(function(v){return [v,v];});}},
     {key:'profile',  label:'Site profile', opts:function(){return distinctS(function(s){return s[2];}).sort().map(function(v){return [v,v];});}},
     {key:'province', label:'Province',     opts:function(){ var cs=state.country; return Array.from(new Set(SITES.filter(function(s){return !cs.length||cs.indexOf(s[4])>=0;}).map(function(s){return s[3];}))).filter(Boolean).sort().map(function(v){return [v,v];}); }},
     {key:'store',    label:'Store',        opts:function(){ return SITES.map(function(s){return [s[0], s[0]+(s[1]?' — '+s[1]:'')];}).sort(function(a,b){return a[0]<b[0]?-1:a[0]>b[0]?1:0;}); }},
-    {key:'rep',      label:'Rep',          hideIfEmpty:true, opts:function(){ return distinctS(function(s){return s[6];}).sort().map(function(v){return [v, prettyRep(v)];}); }},
+    {key:'rep',      label:'Rep',          hideIfEmpty:true, hideInClientMode:true, opts:function(){ return distinctS(function(s){return s[6];}).sort().map(function(v){return [v, prettyRep(v)];}); }},
     {key:'client',   label:'Client',       hideInClientMode:true, opts:function(){ return CLIENT_N.slice().sort().map(function(v){return [v,v];}); }}
   ];
   function msSummary(f){ var sel=state[f.key]; if(!sel.length) return 'All'; if(sel.length===1){ var o=f.opts().filter(function(x){return x[0]===sel[0];})[0]; return o?o[1]:sel[0]; } return sel.length+' selected'; }
@@ -304,39 +356,47 @@
   }
   function buildFilters(){ var slot=document.getElementById('filterSlots'); slot.innerHTML=''; FILTERS.forEach(function(f){ var d=buildOneFilter(f); if(d) slot.appendChild(d); }); }
   buildFilters();
+  // the filters actually on screen, for the how-to-read and glossary prose — derived, so the text cannot name a
+  // filter (Rep on a client report) that the page does not show
+  var FILTER_NAMES=FILTERS.filter(function(f){ return !(f.hideInClientMode&&CLIENT_MODE) && !(f.hideIfEmpty&&!f.opts().length); }).map(function(f){return f.label;});
   // close any open dropdown when clicking outside it
   document.addEventListener('click',function(e){ document.querySelectorAll('#filterSlots .ms[open]').forEach(function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); }); });
 
   // ---------- cards ----------
-  // % of base has its OWN colour scale (independent of the day-to-day trend colour): green <3%, amber <5%, else red.
-  function pctClr(p){ return p<3?'green':p<5?'amber':'red'; }
+  // Headline big, labelled with its date; under it the three comparison points, each with its own date, value and
+  // a direction-only arrow. The card colour is the 30-day comparison alone (colr).
+  function cmpRow(lab,iso,has,c,v){ return '<div class="dl"><span class="dk">'+esc(lab)+' · '+(has?esc(pdate(iso)):'no data')+'</span>'+
+    '<span class="dr"><span class="dv">'+(v==null?'—':nf(v))+'</span>'+arrow(c,v)+'</span></div>'; }
   function cardHTML(src,key,label){
-    var c=src.cur[key]||0,p=src.prev[key]||0,w=src.wk[key]||0,cls=colr(c,p,w);
-    var base=src.cur.base||0, pct=base>0?Math.round(c/base*100):0;
-    return '<div class="kcard '+cls+'"><div class="ktop"><span class="kl">'+esc(label)+'</span>'+
+    var c=src.cur[key]||0, p=pk(src.prev,key), w=pk(src.wk,key), m=pk(src.mo,key);
+    return '<div class="kcard '+colr(c,m)+'"><div class="ktop"><span class="kl">'+esc(label)+'</span>'+
       '<button class="info" type="button" data-k="'+key+'" aria-label="What is this?" title="What is this?">i</button></div>'+
       '<div class="kv">'+nf(c)+'</div>'+
-      '<div class="kpct '+pctClr(pct)+'">'+pct+'% of base</div>'+
-      '<div class="dl"><span class="dk">Yesterday</span><span><span class="dv">'+nf(p)+'</span>'+arrow(c,p)+'</span></div>'+
-      '<div class="dl"><span class="dk">Last week</span><span><span class="dv">'+nf(w)+'</span>'+arrow(c,w)+'</span></div></div>';
+      '<div class="kh">'+HEAD_LAB+' · '+esc(pdate(meta.current))+'</div>'+
+      cmpRow(PREV_LAB,meta.previous,HASP,c,p)+cmpRow('Same day last week',meta.weekago,HASW,c,w)+cmpRow('30 days ago',meta.day30ago,HAS30,c,m)+'</div>';
   }
   function cardsHTML(src){ return '<div class="kcards">'+KPIS.map(function(kp){return cardHTML(src,kp[0],kp[1]);}).join('')+'</div>'; }
   function ctxHTML(src){
-    return '<div class="ctxline"><b>'+nf(src.cur.action)+'</b> items to action '+arrow(src.cur.action,src.prev.action)+' vs yest, '+arrow(src.cur.action,src.wk.action)+' vs last wk'+
-      ' &nbsp;&middot;&nbsp; <b>~'+nf(src.cur.lost)+'</b> units/day lost '+arrow(src.cur.lost,src.prev.lost)+
-      ' &nbsp;&middot;&nbsp; <b>'+nf(src.cur.active)+'</b> active lines &nbsp;&middot;&nbsp; <b>'+nf(src.cur.sites)+'</b> sites'+
+    return '<div class="ctxline"><b>'+nf(src.cur.active)+'</b> active lines &nbsp;&middot;&nbsp; <b>'+nf(src.cur.sites)+'</b> sites'+
       ' &nbsp;&middot;&nbsp; base <b>'+nf(src.cur.base)+'</b> site-article lines</div>';
   }
 
   // ---------- generic table ----------
-  function kpiCol(key,lab){ return {label:lab||key.toUpperCase(),get:function(e){return '<span class="chip '+colr(e.cur[key],e.prev[key],e.wk[key])+'">'+nf(e.cur[key])+'</span>';},sort:function(e){return e.cur[key];}}; }
-  function actCol(){ return {label:'To action',get:function(e){return nf(e.cur.action)+arrow(e.cur.action,e.prev.action);},sort:function(e){return e.cur.action;}}; }
-  function lostCol(lbl){ return {label:lbl||'Units/day lost',get:function(e){return nf(e.cur.lost)+arrow(e.cur.lost,e.prev.lost);},sort:function(e){return e.cur.lost;}}; }
+  function kpiCol(key,lab){ return {label:lab||key.toUpperCase(),get:function(e){return '<span class="chip '+colr(e.cur[key],pk(e.mo,key))+'">'+nf(e.cur[key])+'</span>';},sort:function(e){return e.cur[key];}}; }
+  // One period of one KPI (the per-KPI tabs, D6). The label is the sort key colIndex looks up, so the date goes in
+  // .sub (a second header line + tooltip), never into the label. A missing period sorts to the bottom, shows "—".
+  function periodCol(key,per,lab,iso,has,chip){ var d=has?pdate(iso):'no data';
+    return {label:lab,sub:d,get:function(e){ var v=pk(e[per],key); if(v==null) return '<span class="flat">—</span>';
+      return chip?'<span class="chip '+colr(v,pk(e.mo,key))+'">'+nf(v)+'</span>':nf(v); },
+      sort:function(e){ var v=pk(e[per],key); return v==null?-1:v; }}; }
+  // D6 order, oldest to newest; the colour chip on the headline column only
+  function periodCols(key){ return [periodCol(key,'mo','30 days ago',meta.day30ago,HAS30,false),periodCol(key,'wk','Last week',meta.weekago,HASW,false),
+    periodCol(key,'prev',PREV_LAB,meta.previous,HASP,false),periodCol(key,'cur',HEAD_LAB,meta.current,true,true)]; }
   function table(rows, cols, opts){
     opts=opts||{}; var st={sort:opts.sort,asc:false,q:''};
-    var legend='<div class="tlegend"><b>Colours</b> (per KPI cell, lower is better): <span class="ld green"></span>better than yesterday &amp; last week (or 0) <span class="ld amber"></span>better than one <span class="ld red"></span>neither</div>';
+    var legend='<div class="tlegend"><b>Colours</b> ('+HEAD_LAB.toLowerCase()+' vs 30 days ago, lower is better): <span class="ld green"></span>fewer, or 0 <span class="ld amber"></span>same <span class="ld red"></span>more <span class="ld none"></span>no 30-day data</div>';
     var tools=opts.search?'<div class="toolbar"><label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A929D" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg><input type="search" placeholder="'+esc(opts.search)+'"></label><span class="count"></span></div>':'';
-    var html=legend+tools+'<div class="tbl-scroll"><table><thead><tr>'+cols.map(function(c,i){return '<th class="'+(c.l?'l':'')+'" data-i="'+i+'">'+esc(c.label)+'</th>';}).join('')+'</tr></thead><tbody></tbody></table></div>';
+    var html=legend+tools+'<div class="tbl-scroll"><table><thead><tr>'+cols.map(function(c,i){return '<th class="'+(c.l?'l':'')+'" data-i="'+i+'"'+(c.sub?' title="'+esc(c.sub)+'"':'')+'>'+esc(c.label)+(c.sub?'<span class="thd">'+esc(c.sub)+'</span>':'')+'</th>';}).join('')+'</tr></thead><tbody></tbody></table></div>';
     var box=document.createElement('div'); box.innerHTML=html;
     var tbody=box.querySelector('tbody'), thead=box.querySelector('thead'), cnt=box.querySelector('.count'), se=box.querySelector('.search input');
     function draw(){
@@ -355,53 +415,54 @@
 
   var KPICOLS=[kpiCol('oos','OOS'),kpiCol('low','Low'),kpiCol('phantom','Phantom'),kpiCol('neg','Neg'),kpiCol('disc','Disc')];
   function namedCols(label){ return [{label:label,l:true,get:function(e){return '<span class="code">'+esc(e.name)+'</span>';},sort:function(e){return e.name;}},
-    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS,[actCol(),lostCol()]); }
+    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
+  // Rep and Last visited are PORTFOLIO-only (D5): the client payload no longer carries them, so on a client report
+  // the columns are omitted, not shown blank — an empty "Rep" column still tells a client that reps exist.
   function siteCols(){ return [{label:'Site',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
     {label:'Store name',l:true,get:function(e){return esc(e.name||'—');},sort:function(e){return e.name||'';}},
-    {label:'Rep',l:true,get:function(e){return '<span class="nm2">'+esc(prettyRep(e.rep))+'</span>';},sort:function(e){return e.rep||'';}},
-    {label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
+    CLIENT_MODE?null:{label:'Rep',l:true,get:function(e){return '<span class="nm2">'+esc(prettyRep(e.rep))+'</span>';},sort:function(e){return e.rep||'';}},
+    CLIENT_MODE?null:{label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
     {label:'Province',l:true,get:function(e){return '<span class="nm2">'+esc(e.province||'—')+'</span>';},sort:function(e){return e.province||'';}},
-    {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}},actCol()].concat(KPICOLS,[
-    {label:'Units/day',get:function(e){return nf(e.cur.lost);},sort:function(e){return e.cur.lost;}}]); }
+    {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}}].filter(Boolean).concat(KPICOLS); }
   function productCols(){ return [{label:'Article',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
     {label:'Description',l:true,get:function(e){return esc(e.name);},sort:function(e){return e.name;}},
-    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS,[
-    {label:'Units/day',get:function(e){return nf(e.cur.lost);},sort:function(e){return e.cur.lost;}}]); }
+    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
 
   function elH2(t,sub){ var d=document.createElement('div'); d.className='h2'; d.innerHTML=esc(t)+(sub?' <span class="sub">'+esc(sub)+'</span>':''); return d; }
-  function colIndex(cols,label){ for(var i=0;i<cols.length;i++) if(cols[i].label===label) return i; return 0; }
+  // A label miss falls back to column 0 — usually a name — so a "Most affected" table silently lists the
+  // alphabetically-first rows under its heading. Log it: the template click-through reads the console.
+  function colIndex(cols,label){ for(var i=0;i<cols.length;i++) if(cols[i].label===label) return i; console.error('colIndex miss: '+label); return 0; }
   var MOST=10;
 
   // ---------- panes ----------
   function paneOverview(){
     var s=CX.agg;
-    var w='<details class="writeup"><summary>How to read this</summary><div class="writeup-body">Every KPI is a problem count, so <b>lower is better</b>. Each card and each coloured number compares <b>today</b> with <b>yesterday</b> and with <b>this day last week</b>. '+
-      '<span class="sw" style="background:var(--green)"></span><b>Green</b> = better than both (or already zero), '+
-      '<span class="sw" style="background:var(--amber)"></span><b>Amber</b> = better than one of them, '+
-      '<span class="sw" style="background:var(--red)"></span><b>Red</b> = better than neither (worse or flat on both). '+
-      'The card shows today big, with yesterday and last week underneath and the change (▼ fewer is good, ▲ more is bad). The same colours run down every KPI column in the tables. '+
-      'The <b>filters</b> above (Country · Sub-channel · Site profile · Province · Store · Rep · Client) re-slice everything — cards and every table — live, and each takes <b>several picks</b>. Country defaults to South Africa.'+
-      '<br><br><b>The “% of base” pill</b> has its <b>own</b> colour scale (separate from the trend colour): it shows the KPI as a share of the full range — every site-article combination in scope (all statuses), shown as the <b>base</b> count on the line below the cards. '+
-      '<span class="sw" style="background:var(--green)"></span><b>Green</b> under 3%, '+
-      '<span class="sw" style="background:var(--amber)"></span><b>Amber</b> 3–5%, '+
-      '<span class="sw" style="background:var(--red)"></span><b>Red</b> 5%+ — so you can see which problems touch a large slice of the range, regardless of the day-to-day trend. Tap the <b>i</b> on any card for what it means. </div></details>';
+    var w='<details class="writeup"><summary>How to read this</summary><div class="writeup-body">Every KPI is a problem count, so <b>lower is better</b>. The big number on each card is <b>'+HEAD_LAB.toLowerCase()+'</b> ('+esc(pdate(meta.current))+'). Underneath are the <b>'+PREV_LAB.toLowerCase()+'</b>, the <b>same day last week</b> and <b>30 days ago</b>, each with its date, its count and an arrow for the direction of change (▼ fewer, ▲ more). A period with no data shows “—”. '+
+      '<br><br>The <b>colour</b> compares the big number with <b>30 days ago</b> only: '+
+      '<span class="sw" style="background:var(--green)"></span><b>Green</b> = fewer (and 0 is always green), '+
+      '<span class="sw" style="background:var(--amber)"></span><b>Yellow</b> = exactly the same, '+
+      '<span class="sw" style="background:var(--red)"></span><b>Red</b> = more, '+
+      '<span class="sw" style="background:var(--mute-2)"></span><b>Grey</b> = no data for 30 days ago. '+
+      'The same rule colours every KPI number in the tables. The arrows are not coloured: a card can be green (fewer than a month ago) with a ▲ against the day before. '+
+      '<br><br>The <b>filters</b> above ('+esc(FILTER_NAMES.join(' · '))+') re-slice everything — cards and every table — live, and each takes <b>several picks</b>.'+(hasSA?' Country defaults to South Africa.':'')+
+      ' The “Most affected” tables are ranked by out of stock. Tap the <b>i</b> on any card for what it means.</div></details>';
     var el=document.createElement('div'); el.innerHTML='<div class="h2">Portfolio KPIs <span class="sub">'+esc(CX.label)+'</span></div>'+w+'<div style="height:12px"></div>'+cardsHTML(s)+ctxHTML(s);
-    el.appendChild(elH2('Most affected provinces','by items to action'));
-    el.appendChild(table(CX.province.slice(), namedCols('Province'), {sort:colIndex(namedCols('Province'),'To action'),limit:MOST}));
-    el.appendChild(elH2('Most affected site profiles','by items to action'));
-    el.appendChild(table(CX.profile.slice(), namedCols('Site profile'), {sort:colIndex(namedCols('Site profile'),'To action'),limit:MOST}));
+    el.appendChild(elH2('Most affected provinces','by out of stock'));
+    el.appendChild(table(CX.province.slice(), namedCols('Province'), {sort:colIndex(namedCols('Province'),'OOS'),limit:MOST}));
+    el.appendChild(elH2('Most affected site profiles','by out of stock'));
+    el.appendChild(table(CX.profile.slice(), namedCols('Site profile'), {sort:colIndex(namedCols('Site profile'),'OOS'),limit:MOST}));
     if(!CLIENT_MODE){
-      el.appendChild(elH2('Most affected clients','by items to action'));
-      el.appendChild(table(CX.clients.slice(), namedCols('Client account'), {sort:colIndex(namedCols('Client account'),'To action'),limit:MOST}));
+      el.appendChild(elH2('Most affected clients','by out of stock'));
+      el.appendChild(table(CX.clients.slice(), namedCols('Client account'), {sort:colIndex(namedCols('Client account'),'OOS'),limit:MOST}));
     }
-    el.appendChild(elH2('Most affected sites','by items to action'));
-    el.appendChild(table(CX.sites.slice(), siteCols(), {sort:colIndex(siteCols(),'To action'),limit:MOST}));
+    el.appendChild(elH2('Most affected sites','by out of stock'));
+    el.appendChild(table(CX.sites.slice(), siteCols(), {sort:colIndex(siteCols(),'OOS'),limit:MOST}));
     el.appendChild(elH2('Most affected products','by out of stock'));
     el.appendChild(table(CX.products.slice(), productCols(), {sort:colIndex(productCols(),'OOS'),limit:MOST}));
     return el;
   }
-  function paneClients(){ var el=document.createElement('div'); el.appendChild(elH2('Clients','('+CX.clients.length+')')); el.appendChild(table(CX.clients.slice(),namedCols('Client account'),{sort:colIndex(namedCols('Client account'),'To action'),search:'Search client',searchKeys:['name']})); return el; }
-  function paneSites(){ var el=document.createElement('div'); el.appendChild(elH2('Sites','('+CX.sites.length+')')); el.appendChild(table(CX.sites.slice(),siteCols(),{sort:colIndex(siteCols(),'To action'),search:'Search site code or name',searchKeys:['code','name']})); return el; }
+  function paneClients(){ var el=document.createElement('div'); el.appendChild(elH2('Clients','('+CX.clients.length+')')); el.appendChild(table(CX.clients.slice(),namedCols('Client account'),{sort:colIndex(namedCols('Client account'),'OOS'),search:'Search client',searchKeys:['name']})); return el; }
+  function paneSites(){ var el=document.createElement('div'); el.appendChild(elH2('Sites','('+CX.sites.length+')')); el.appendChild(table(CX.sites.slice(),siteCols(),{sort:colIndex(siteCols(),'OOS'),search:'Search site code or name',searchKeys:['code','name']})); return el; }
   function paneProducts(){ var el=document.createElement('div'); el.appendChild(elH2('Products','('+CX.products.length+' flagged)')); el.appendChild(table(CX.products.slice(),productCols(),{sort:colIndex(productCols(),'OOS'),search:'Search article or description',searchKeys:['code','name']})); return el; }
   // every flagged site × article line (the PRODUCTSITE grain). Built lazily — only when this tab is open.
   function spCols(){ return [
@@ -411,34 +472,38 @@
     {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}},
     {label:'Article',l:true,get:function(e){return '<span class="code">'+esc(e.article)+'</span>';},sort:function(e){return e.article;}},
     {label:'Description',l:true,get:function(e){return esc(e.desc);},sort:function(e){return e.desc;}}
-  ].concat(KPICOLS,[{label:'Units/day',get:function(e){return nf(e.cur.lost);},sort:function(e){return e.cur.lost;}}]); }
+  ].concat(KPICOLS); }
   var SP_LIMIT=2000;  // cap painted rows on the full report; search/filters reach the rest
   function paneSiteProduct(){
-    var rows=filteredPS().map(function(r){ var s=SITES[r[0]],pr=PROD[r[1]]; return {code:s[0],name:s[1],profile:s[2],province:s[3],article:pr[0],desc:pr[1],cur:objPS(r[3]),prev:objPS(r[4]),wk:objPS(r[5])}; });
+    var rows=filteredPS().map(function(r){ var s=SITES[r[0]],pr=PROD[r[1]]; return {code:s[0],name:s[1],profile:s[2],province:s[3],article:pr[0],desc:pr[1],
+      cur:objPS(r[3]),prev:HASP?objPS(r[4]):null,wk:HASW?objPS(r[5]):null,mo:HAS30?objPS(r[6]):null}; });
     var el=document.createElement('div');
     el.appendChild(elH2('Site × Product','('+nf(rows.length)+' flagged lines)'));
     var note=document.createElement('div'); note.className='note';
-    note.innerHTML='Every flagged site-article line in scope. '+(rows.length>SP_LIMIT?'Showing the top '+SP_LIMIT+' by units/day lost — <b>narrow with the filters above or the search</b> to see the rest.':'')+' Use the filters (Country · Profile · Province · Client) and column sort to drill in.';
+    note.innerHTML='Every flagged site-article line in scope. '+(rows.length>SP_LIMIT?'Showing '+nf(SP_LIMIT)+' of them, out-of-stock lines first — <b>narrow with the filters above or the search</b> to see the rest.':'')+' Use the filters above and the column sort to drill in.';
     el.appendChild(note);
-    el.appendChild(table(rows,spCols(),{sort:colIndex(spCols(),'Units/day'),limit:SP_LIMIT,search:'Search site code, name or article',searchKeys:['code','name','article','desc']}));
+    el.appendChild(table(rows,spCols(),{sort:colIndex(spCols(),'OOS'),limit:SP_LIMIT,search:'Search site code, name or article',searchKeys:['code','name','article','desc']}));
     return el;
   }
+  // Sorts here go by the headline column's LABEL through colIndex, never a literal index: the column count moves
+  // (Last visited is portfolio-only), and a stale index sorts silently by whatever column now sits there.
   function paneKpi(key){
     var el=document.createElement('div');
     el.innerHTML='<div class="h2">'+esc(KLAB[key])+' <span class="sub">'+esc(CX.label)+'</span></div><div class="kcards">'+cardHTML(CX.agg,key,KLAB[key])+'</div>';
     var sc=[{label:'Site',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
             {label:'Store name',l:true,get:function(e){return esc(e.name||'—');},sort:function(e){return e.name||'';}},
-            {label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
+            // the second copy of Last visited (siteCols has the other) — portfolio only, see siteCols
+            CLIENT_MODE?null:{label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
             {label:'Province',l:true,get:function(e){return '<span class="nm2">'+esc(e.province||'—')+'</span>';},sort:function(e){return e.province||'';}},
-            {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}},
-            kpiCol(key,KLAB[key]),actCol()];
+            {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}}
+           ].filter(Boolean).concat(periodCols(key));
     el.appendChild(elH2('Most affected sites','for '+KLAB[key]));
-    el.appendChild(table(CX.sites.slice(),sc,{sort:colIndex(sc,KLAB[key]),limit:50}));
+    el.appendChild(table(CX.sites.slice(),sc,{sort:colIndex(sc,HEAD_LAB),limit:50}));
     var pc=[{label:'Article',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
             {label:'Description',l:true,get:function(e){return esc(e.name);},sort:function(e){return e.name;}},
-            {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}},kpiCol(key,KLAB[key])];
+            {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(periodCols(key));
     el.appendChild(elH2('Most affected products','for '+KLAB[key]));
-    el.appendChild(table(CX.products.slice(),pc,{sort:3,limit:50}));
+    el.appendChild(table(CX.products.slice(),pc,{sort:colIndex(pc,HEAD_LAB),limit:50}));
     return el;
   }
 
@@ -453,37 +518,43 @@
   document.getElementById('tabs').addEventListener('click',function(e){var t=e.target.closest('.tab');if(!t)return;state.tab=t.getAttribute('data-tab');document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x===t);});render();});
   document.getElementById('fClear').addEventListener('click',function(){ state.country=(hasSA?['South Africa']:[]); state.sub=[];state.profile=[];state.province=[];state.store=[];state.rep=[];state.client=[]; buildFilters(); render(); });
 
+  // Entries that are null are skipped: a client report never mentions reps (its payload carries none — D5), and the
+  // excluded-vendors entry appears only when the bar at the top does.
   document.getElementById('glossaryBody').innerHTML=[
-    ['Colours (lower is better)','Each KPI is a count of problems, so fewer is better. We compare today with yesterday and with the same day last week. Green = today is lower than both (or already zero); amber = lower than one; red = lower than neither. The same logic colours both the cards and every KPI number in the tables.'],
-    ['% of base','The base is every site-article combination in scope — all statuses, the full range. Each card shows the KPI as a share of that base, so the count has context (e.g. 2% of the range is out of stock). It re-computes as you filter, and each client report uses that client’s base.'],
-    ['Out of stock','Active line (status 04) with on-hand at or below 0. Units/day lost = the rate of sale across those empty lines.'],
+    ['Colours (lower is better)','Each KPI is a count of problems, so fewer is better. The colour compares the headline number with the same KPI <b>30 days earlier</b>: green = fewer, yellow = exactly the same, red = more. A 0 is always green, even when it was also 0 thirty days ago. Grey = there is no data for 30 days ago, so no comparison is made (it is never shown as red). The same rule colours the cards and every KPI number in the tables.'],
+    ['Arrows','▼ fewer / ▲ more than the period on that row, with the difference. They show the direction only and are not coloured — the colour comes from the 30-day comparison alone.'],
+    ['Periods','The headline is the latest data date, labelled <b>Yesterday</b> when it is the day before this report was generated and <b>Latest</b> otherwise (for example when the day’s feed has not landed yet). It is compared with the day before (−1 day), the same day last week (−7) and 30 days ago (−30), and every point shows its actual date. A period with no data shows “—”, not 0.'+(CHANNEL==='pnp'?' Each vendor is read on its own latest date and counted back from there.':'')+' Data updates daily. On the KPI tabs the four periods sit side by side, oldest first.'],
+    ['Out of stock','Active line (status 04) with on-hand at or below 0.'],
     ['Low Stock Cover','Active line, days cover ≤ 14 and still selling — about to run out.'],
     ['Phantom','Active line with stock but no sale in 60+ days — likely not on the shelf.'],
-    ['Negative SOH','On-hand below 0 — impossible figure; a rep counts the shelf to correct the system.'],
+    ['Negative SOH','On-hand below 0 — impossible figure; the shelf is counted so the system can be corrected.'],
     ['Discontinued with SOH','Non-active line still holding stock — clear or return it.'],
-    ['Filters','Country, Sub-channel, Site profile, Province, Store, Rep and Client re-slice everything live — the cards and every table. Each filter is multi-select — tick several. Country defaults to South Africa; the Province list follows the chosen countries.'],
-    ['Rep & Last visited','Taken from the store reports ARIA has sent (each store gets its report on its visit day), so “last visited” ≈ the date of the most recent store report and the rep is whoever received it. Blank for a store ARIA has never sent a report for.'],
+    ['Active lines &amp; base','Active lines are site-article lines on status 04. The base is every site-article combination in scope — all statuses, the full range. Both are shown on the line under the cards for context and re-compute as you filter.'],
+    ['Most affected','The “Most affected” tables are ranked by out of stock, most first. Click any column heading to re-sort.'],
+    ['Filters',esc(FILTER_NAMES.join(', '))+' re-slice everything live — the cards and every table. Each filter is multi-select — tick several.'+(hasSA?' Country defaults to South Africa;':'')+' the Province list follows the chosen countries.'],
+    ['Tabs',esc(TABS.map(function(t){return t.t;}).join(', '))+'. Each KPI tab lists the most affected sites and products for that KPI, with the colour on the headline column only.'],
+    CLIENT_MODE?null:['Rep &amp; Last visited','Taken from the store reports ARIA has sent (each store gets its report on its visit day), so “last visited” ≈ the date of the most recent store report and the rep is whoever received it. Blank for a store ARIA has never sent a report for.'],
     ['Flagged products','The product list is built from article × site lines that have at least one problem, so it is the problem list — healthy lines are not shown.'],
-    ['Periods','Today = each vendor’s latest date; yesterday = that date − 1; last week = that date − 7. Data updates daily.']
-  ].map(function(g){return '<div class="gitem"><b>'+g[0]+'</b><p>'+g[1]+'</p></div>';}).join('');
+    STALE.length?['Excluded vendors','A vendor whose latest data is more than 7 days older than the newest vendor’s is left out of every figure and every period, rather than being counted as current. Each one is named in the bar at the top with its vendor number and last data date.']:null
+  ].filter(Boolean).map(function(g){return '<div class="gitem"><b>'+g[0]+'</b><p>'+g[1]+'</p></div>';}).join('');
   document.getElementById('glossaryBtn').addEventListener('click',function(){document.getElementById('glossary').hidden=false;});
   document.getElementById('glossaryClose').addEventListener('click',function(){document.getElementById('glossary').hidden=true;});
   document.getElementById('glossary').addEventListener('click',function(e){if(e.target.id==='glossary')e.target.hidden=true;});
 
   // ---------- per-card info button ----------
   var KINFO={
-    oos:'<b>What it counts.</b> Active lines (status 04) where on-hand is 0 or below — the shelf is empty but the line is still expected to sell. <b>The big number</b> is how many site-article lines are out of stock right now; the <b>% of base</b> is that as a share of the full range; <b>units/day lost</b> (on the line below the cards) is the rate of sale being missed. <b>Act:</b> get stock back on the shelf / raise an order.',
-    low:'<b>What it counts.</b> Active lines with 14 days of cover or less that are still selling — about to run out. The <b>%</b> shows how much of the range is at risk of going empty. <b>Act:</b> replenish before they hit zero.',
+    oos:'<b>What it counts.</b> Active lines (status 04) where on-hand is 0 or below — the shelf is empty but the line is still expected to sell. <b>The big number</b> is how many site-article lines are out of stock on the headline date. <b>Act:</b> get stock back on the shelf / raise an order.',
+    low:'<b>What it counts.</b> Active lines with 14 days of cover or less that are still selling — about to run out. <b>Act:</b> replenish before they hit zero.',
     phantom:'<b>What it counts.</b> Active lines that show stock on the system but have not sold in 60+ days — usually the stock is not really on the shelf (lost, misplaced or miscounted). <b>Act:</b> physically check the shelf and correct the on-hand.',
-    neg:'<b>What it counts.</b> Lines with on-hand below 0 — an impossible figure, so a system or count error. <b>Act:</b> a rep counts the shelf so the figure can be corrected.',
-    disc:'<b>What it counts.</b> Lines that are no longer active (discontinued) but still holding stock — capital tied up in dead range. The <b>%</b> shows how much of the range is dead stock. <b>Act:</b> clear or return it.'
+    neg:'<b>What it counts.</b> Lines with on-hand below 0 — an impossible figure, so a system or count error. <b>Act:</b> count the shelf so the figure can be corrected.',
+    disc:'<b>What it counts.</b> Lines that are no longer active (discontinued) but still holding stock — capital tied up in dead range. <b>Act:</b> clear or return it.'
   };
   document.getElementById('pane').addEventListener('click',function(e){
     var b=e.target.closest('.info'); if(!b) return;
     var k=b.getAttribute('data-k');
     document.getElementById('cardInfoTitle').textContent=KLAB[k]||'KPI';
     document.getElementById('cardInfoBody').innerHTML='<div class="gitem"><p>'+(KINFO[k]||'')+'</p></div>'+
-      '<div class="gitem"><b>Reading the colours</b><p>The left bar &amp; background show the <b>trend</b> — green = better than yesterday <i>and</i> last week (or zero), amber = better than one, red = neither. The <b>% of base</b> pill has its <b>own</b> scale — green under 3%, amber 3–5%, red 5%+ — so a card can be improving (green trend) yet still touch a large share of the range (red %). They are independent signals.</p></div>';
+      '<div class="gitem"><b>Reading the colours</b><p>The left bar &amp; background compare the big number with <b>30 days ago</b> — green = fewer (or 0), yellow = exactly the same, red = more, grey = no data for 30 days ago. The arrows on the rows below show only which way the count moved against that row’s date, so a card can be green (fewer than a month ago) while showing ▲ against the day before.</p></div>';
     document.getElementById('cardInfo').hidden=false;
   });
   document.getElementById('cardInfoClose').addEventListener('click',function(){document.getElementById('cardInfo').hidden=true;});
