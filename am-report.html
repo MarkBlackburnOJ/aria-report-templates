@@ -286,12 +286,50 @@
       return 'ps and sc disagree at site '+(s?s[0]:ks[0])+' / client '+(CLIENT_N[ks[1]]||ks[1])+' ('+F5[i%5]+', '+per[Math.floor(i/5)][2]+': sc '+(t[i]>0?'more':'fewer')+' by '+Math.abs(Math.round(t[i]))+')'; } }
     return null;
   }
+  // SITESTATUS rows (payload "ss"; engine + procs, CHANGE 2026-09-23): sc again, split by the lines' channel status —
+  // EVERY line, flagged or not. ss row = [site, client, status|null, cur, prev, wk, mo?], re-shaped here to the sc shape
+  // [site, client, cur, prev, wk, mo] plus [6] = status ('' = "(not set)", PSTAT's rule), so a status pick runs the
+  // ordinary sc path (sumSC and the rollups) and gets EVERY number, active lines and base included. Absent (an older
+  // engine or proc) -> [] and a pick falls back to the ps re-count, which shows "—" for what ps cannot carry.
+  var SS=(Array.isArray(D.ss)?D.ss:[]).map(function(r){ return [r[0],r[1],r[3],r[4],r[5],r[6],r[2]==null?'':String(r[2]).trim()]; });
+  function ssPass(r){ return scPass(r) && inSel(state.status, r[6]); }
+  function filteredSS(){ return SS.filter(ssPass); }
+  // ss stands in for sc under a status pick, so it must add up to sc: per (site, client) and present period, its rows
+  // summed over their statuses equal the sc row in every KSC column but 'sites' (1 a row either way) and 'lost' (the
+  // engine rounds it per row). And per (site, client, status) its five KPIs must equal that status's ps lines, or the
+  // cards and the product tables of one pick disagree. CHECKED like statusGuard, not assumed: on a miss ss is not used
+  // and a pick falls back to the ps re-count. Returns null when it holds, else the first miss.
+  function ssGuard(){
+    var per=[[2,3,'current']].concat(HASP?[[3,4,'previous']]:[],HASW?[[4,5,'week ago']]:[],HAS30?[[5,6,'30 days ago']]:[]);
+    var cols=[]; KSC.forEach(function(k,i){ if(k!=='sites'&&k!=='lost') cols.push(i); });
+    var nc=cols.length, acc=Object.create(null);
+    function add(key,a,sgn,off){ if(!a) return; var t=acc[key]||(acc[key]=zero(per.length*nc)); for(var q=0;q<nc;q++) t[off+q]+=sgn*(a[cols[q]]||0); }
+    SC.forEach(function(r){ var key=r[0]+'|'+r[1]; per.forEach(function(p,n){ add(key,r[p[0]],1,n*nc); }); });
+    SS.forEach(function(r){ var key=r[0]+'|'+r[1]; per.forEach(function(p,n){ add(key,r[p[0]],-1,n*nc); }); });
+    for(var key in acc){ var t=acc[key]; for(var i=0;i<t.length;i++) if(Math.round(t[i])!==0){ var ks=key.split('|'), s=SITES[ks[0]];
+      return 'ss and sc disagree at site '+(s?s[0]:ks[0])+' / client '+(CLIENT_N[ks[1]]||ks[1])+' ('+KSC[cols[i%nc]]+', '+per[Math.floor(i/nc)][2]+')'; } }
+    var F5=['oos','low','phantom','neg','disc'];
+    var iS=F5.map(function(k){ return KSC.indexOf(k); }), iP=F5.map(function(k){ return KPS.indexOf(k); });
+    if(iS.indexOf(-1)>=0||iP.indexOf(-1)>=0) return 'KSC/KPS lack one of '+F5.join('/');
+    var acc2=Object.create(null);
+    function add2(key,a,ix,sgn,off){ if(!a) return; var t=acc2[key]||(acc2[key]=zero(per.length*5)); for(var q=0;q<5;q++) t[off+q]+=sgn*(a[ix[q]]||0); }
+    SS.forEach(function(r){ var key=r[0]+'|'+r[1]+'|'+r[6]; per.forEach(function(p,n){ add2(key,r[p[0]],iS,1,n*5); }); });
+    PS.forEach(function(r){ var key=r[0]+'|'+r[2]+'|'+pStat(r[1]); per.forEach(function(p,n){ add2(key,r[p[1]],iP,-1,n*5); }); });
+    for(var k2 in acc2){ var t2=acc2[k2]; for(var j=0;j<t2.length;j++) if(Math.round(t2[j])!==0){ var ks2=k2.split('|'), s2=SITES[ks2[0]];
+      return 'ss and ps disagree at site '+(s2?s2[0]:ks2[0])+' / client '+(CLIENT_N[ks2[1]]||ks2[1])+' / status '+(ks2[2]||'(not set)')+' ('+F5[j%5]+', '+per[Math.floor(j/5)][2]+')'; } }
+    return null;
+  }
+  var SS_ON=(function(){ if(!SS.length) return false; var why=ssGuard(); if(!why) return true;
+    console.warn('Product status: per-status line counts not used: '+why+'. A status pick re-counts from the flagged lines instead (active lines and base show “—”).'); return false; })();
   // The Product status filter's options, computed ONCE: msSummary calls opts() on every refresh, and this is a pass
-  // over every ps row. Only statuses a flagged line carries. Fewer than 2 -> [] -> not rendered (hideIfEmpty) and
-  // out of FILTER_NAMES: one option filters nothing, and it is what an old engine, a SAMS proc not yet applied
-  // (every status null) and a single-status client all produce. "(not set)" sorts last.
+  // over every ps (and ss) row. The statuses a flagged line carries, plus — with ss in use — those only healthy lines
+  // carry (a pick then shows zero problems and the real active lines / base). Fewer than 2 -> [] -> not rendered
+  // (hideIfEmpty) and out of FILTER_NAMES: one option filters nothing, and it is what an old engine, a SAMS proc not
+  // yet applied (every status null) and a single-status client all produce. "(not set)" sorts last.
   var STATUS_OPTS=(function(){
-    var seen=Object.create(null),vs=[]; for(var i=0;i<PS.length;i++){ var v=pStat(PS[i][1]); if(!(v in seen)){ seen[v]=1; vs.push(v); } }
+    var seen=Object.create(null),vs=[]; function see(v){ if(!(v in seen)){ seen[v]=1; vs.push(v); } }
+    for(var i=0;i<PS.length;i++) see(pStat(PS[i][1]));
+    if(SS_ON) for(var j=0;j<SS.length;j++) see(SS[j][6]);
     if(vs.length<2) return [];
     var why=statusGuard(); if(why){ console.warn('Product status filter disabled: '+why+'. The cards could not be re-counted from the flagged lines exactly.'); return []; }
     vs.sort(function(a,b){ return a===''?1:b===''?-1:a<b?-1:a>b?1:0; });
@@ -336,7 +374,7 @@
       [o.cur,o.prev,o.wk,o.mo].forEach(function(x){ if(x) x.sites=n; }); return o;
     });
   }
-  function lensLabel(n){ var a=[];
+  function lensLabel(n,mode){ var a=[];
     if(state.country.length)a.push(state.country.join(', '));
     if(state.sub.length)a.push(state.sub.join(', '));
     if(state.client.length)a.push(state.client.join(', '));
@@ -345,21 +383,26 @@
     if(state.store.length)a.push(state.store.length+' store'+(state.store.length===1?'':'s'));
     if(state.rep.length)a.push(state.rep.map(prettyRep).join(', '));
     if(state.status.length)a.push('Status: '+state.status.map(function(v){return v||'(not set)';}).join(', '));
-    // under a status pick n counts the ps-derived rows' sites (context()): sites with a flagged line, not all sites
-    return (a.length?a.join(' · '):CLIENT_MODE?'All sites':'Whole portfolio')+' ('+nf(n)+' sites'+(state.status.length?' with a flagged line':'')+')'; }
+    // under a status pick n counts the picked rows' sites (context()), not all sites — pickSfx says which
+    return (a.length?a.join(' · '):CLIENT_MODE?'All sites':'Whole portfolio')+' ('+nf(n)+' sites'+pickSfx(mode)+')'; }
+  // What a site / row count means under a status pick (context()'s mode): 'ss' rows are every line of the status,
+  // 'ps' rows only its flagged lines, '' no pick.
+  function pickSfx(mode){ return mode==='ss'?' with '+(state.status.length>1?'those statuses':'that status'):mode==='ps'?' with a flagged line':''; }
 
   var CX={};
-  // With a Product status picked sc cannot follow it (SITECLIENT has no product dimension), so the cards and the
-  // province / profile / client / site rollups are re-summed from the filtered ps lines instead — exact for the
-  // five KPIs, see statusGuard. What ps cannot carry is blanked to null so it prints "—", never a false 0: active
-  // lines and base count every line, flagged or not. No status picked -> the sc path exactly as before, which is
-  // also what the email sums (AmEmailBuilder), so the unfiltered page keeps matching it.
+  // With a Product status picked sc cannot follow it (SITECLIENT has no product dimension). With ss in use (SS_ON)
+  // its rows of the picked statuses stand in for sc — every line of those statuses, so every number is exact, active
+  // lines and base included. Without it (older engine / proc, or ssGuard failed) the cards and the province /
+  // profile / client / site rollups are re-summed from the filtered ps lines — exact for the five KPIs, see
+  // statusGuard — and what ps cannot carry is blanked to null so it prints "—", never a false 0. No status picked ->
+  // the sc path exactly as before, which is also what the email sums (AmEmailBuilder), so the unfiltered page keeps
+  // matching it. Products always come from ps: only flagged lines are listed.
   function context(){
-    var statOn=state.status.length>0, psR=filteredPS();
-    var scR=statOn?psR.map(psAsSC):filteredSC(), agg=sumSC(scR);
-    var o={agg:agg, province:rollupProvince(scR), profile:rollupProfile(scR), clients:rollupClients(scR), sites:rollupSites(scR), products:rollupProducts(psR), statOn:statOn};
-    if(statOn) [[agg],o.province,o.profile,o.clients,o.sites].forEach(function(l){ l.forEach(blankNA); });
-    o.label=lensLabel(agg.cur.sites); return o;
+    var statOn=state.status.length>0, mode=!statOn?'':SS_ON?'ss':'ps', psR=filteredPS();
+    var scR=mode==='ss'?filteredSS():mode==='ps'?psR.map(psAsSC):filteredSC(), agg=sumSC(scR);
+    var o={agg:agg, province:rollupProvince(scR), profile:rollupProfile(scR), clients:rollupClients(scR), sites:rollupSites(scR), products:rollupProducts(psR), statOn:statOn, mode:mode};
+    if(mode==='ps') [[agg],o.province,o.profile,o.clients,o.sites].forEach(function(l){ l.forEach(blankNA); });
+    o.label=lensLabel(agg.cur.sites,mode); return o;
   }
 
   // ---------- header / filters (once) ----------
@@ -467,10 +510,11 @@
   // and "0 active lines" is a false number where the true answer is "not known".
   function nd(x){ return x==null?'—':nf(x); }
   function ctxHTML(src){
-    var on=CX.statOn;
-    return '<div class="ctxline"><b>'+nd(src.cur.active)+'</b> active lines &nbsp;&middot;&nbsp; <b>'+nf(src.cur.sites)+'</b> '+(on?'sites with a flagged line':'sites')+
+    var mode=CX.mode;
+    return '<div class="ctxline"><b>'+nd(src.cur.active)+'</b> active lines &nbsp;&middot;&nbsp; <b>'+nf(src.cur.sites)+'</b> sites'+pickSfx(mode)+
       ' &nbsp;&middot;&nbsp; base <b>'+nd(src.cur.base)+'</b> site-article lines'+
-      (on?'<br><span class="nm2">A product status is picked, so everything here counts only the flagged lines of that status. Active lines and base cover every line, flagged or not, so they are not available (“—”).</span>':'')+'</div>';
+      (mode==='ps'?'<br><span class="nm2">A product status is picked, so everything here counts only the flagged lines of that status. Active lines and base cover every line, flagged or not, so they are not available (“—”).</span>':
+       mode==='ss'?'<br><span class="nm2">A product status is picked, so every number here — the cards, active lines and base — counts only the lines of that status.</span>':'')+'</div>';
   }
 
   // ---------- generic table ----------
@@ -506,10 +550,10 @@
   }
 
   var KPICOLS=[kpiCol('oos','OOS'),kpiCol('low','Low'),kpiCol('phantom','Phantom'),kpiCol('neg','Neg'),kpiCol('disc','Disc')];
-  // Under a status pick these rows come from ps, so Sites counts sites with a flagged line of that status — said in
-  // the header's second line (.sub), never the label, which is the key colIndex sorts by.
+  // Under a status pick these rows come from ss (sites with a line of that status) or ps (sites with a flagged line of
+  // it) — said in the header's second line (.sub), never the label, which is the key colIndex sorts by.
   function namedCols(label){ return [{label:label,l:true,get:function(e){return '<span class="code">'+esc(e.name)+'</span>';},sort:function(e){return e.name;}},
-    {label:'Sites',sub:CX.statOn?'with a flagged line':null,get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
+    {label:'Sites',sub:CX.mode?pickSfx(CX.mode).trim():null,get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
   // Rep and Last visited are PORTFOLIO-only (D5): the client payload no longer carries them, so on a client report
   // the columns are omitted, not shown blank — an empty "Rep" column still tells a client that reps exist.
   function siteCols(){ return [{label:'Site',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
@@ -544,7 +588,8 @@
       '<span class="sw" style="background:var(--mute-2)"></span><b>Grey</b> = no data for 30 days ago. '+
       'The same rule colours the five KPI columns in the tables on '+esc(CHIP_TABS)+'. On each KPI tab only the card and the <b>'+HEAD_LAB.toLowerCase()+'</b> column are coloured; the older periods beside it are plain numbers. The arrows are not coloured: a card can be green (fewer than a month ago) with a ▲ against the day before. '+
       '<br><br>The <b>filters</b> above ('+esc(FILTER_NAMES.join(' · '))+') re-slice everything — cards and every table — live, and each takes <b>several picks</b>.'+(hasSA?' Country defaults to South Africa.':'')+
-      (STATUS_ON?' <b>Product status</b> re-counts from the flagged lines alone: while a status is picked, active lines and base show “—” and “sites” means sites with a flagged line of that status.':'')+
+      (!STATUS_ON?'':SS_ON?' <b>Product status</b> re-counts every number for the lines of the picked status — the cards, active lines and base included; the product tables list its flagged lines.':
+        ' <b>Product status</b> re-counts from the flagged lines alone: while a status is picked, active lines and base show “—” and “sites” means sites with a flagged line of that status.')+
       ' The “Most affected” tables on this page are ranked by out of stock; on each KPI tab they are ranked by that KPI’s '+HEAD_LAB.toLowerCase()+' number. Tap the <b>i</b> on any card for what it means.</div></details>';
     var el=document.createElement('div'); el.innerHTML='<div class="h2">'+(CLIENT_MODE?'Client KPIs':'Portfolio KPIs')+' <span class="sub">'+esc(CX.label)+'</span></div>'+w+'<div style="height:12px"></div>'+cardsHTML(s)+ctxHTML(s);
     el.appendChild(elH2('Most affected provinces','by out of stock'));
@@ -561,8 +606,8 @@
     el.appendChild(table(CX.products.slice(), productCols(), {sort:colIndex(productCols(),'OOS'),limit:MOST}));
     return el;
   }
-  // under a status pick only rows with a flagged line of that status exist (context()), so the count says so
-  function flaggedN(n){ return '('+n+(CX.statOn?' with a flagged line':'')+')'; }
+  // under a status pick only rows with a line (ss) / flagged line (ps) of that status exist (context()), so the count says so
+  function flaggedN(n){ return '('+n+pickSfx(CX.mode)+')'; }
   function paneClients(){ var el=document.createElement('div'); el.appendChild(elH2('Clients',flaggedN(CX.clients.length))); el.appendChild(table(CX.clients.slice(),namedCols('Client account'),{sort:colIndex(namedCols('Client account'),'OOS'),search:'Search client',searchKeys:['name']})); return el; }
   function paneSites(){ var el=document.createElement('div'); el.appendChild(elH2('Sites',flaggedN(CX.sites.length))); el.appendChild(table(CX.sites.slice(),siteCols(),{sort:colIndex(siteCols(),'OOS'),search:'Search site code or name',searchKeys:['code','name']})); return el; }
   function paneProducts(){ var el=document.createElement('div'); el.appendChild(elH2('Products','('+CX.products.length+' flagged)')); el.appendChild(table(CX.products.slice(),productCols(),{sort:colIndex(productCols(),'OOS'),search:'Search article or description',searchKeys:['code','name']})); return el; }
@@ -633,13 +678,13 @@
     ['Phantom','Active line with stock but no sale in 60+ days — likely not on the shelf.'],
     ['Negative SOH','On-hand below 0 — impossible figure; the shelf is counted so the system can be corrected.'],
     ['Discontinued with SOH','Non-active line still holding stock — clear or return it.'],
-    ['Active lines &amp; base','Active lines are site-article lines on status 04. The base is every site-article combination in scope — all statuses, the full range. Both are shown on the line under the cards for context and re-compute as you filter.'+(STATUS_ON?' Neither is available while a Product status is picked (shown as “—”): both count every line, flagged or not, and a status is only carried for the flagged ones.':'')],
+    ['Active lines &amp; base','Active lines are site-article lines on status 04. The base is every site-article combination in scope — all statuses, the full range. Both are shown on the line under the cards for context and re-compute as you filter.'+(!STATUS_ON?'':SS_ON?' Both follow a picked Product status too: they then count only the lines of that status.':' Neither is available while a Product status is picked (shown as “—”): both count every line, flagged or not, and a status is only carried for the flagged ones.')],
     ['Most affected','On the Overview the “Most affected” tables are ranked by out of stock, most first. On each KPI tab they are ranked by that KPI’s '+HEAD_LAB.toLowerCase()+' number, most first. Click any column heading to re-sort.'],
     ['Filters',esc(FILTER_NAMES.join(', '))+' re-slice everything live — the cards and every table. Each filter is multi-select — tick several.'+(hasSA?' Country defaults to South Africa;':'')+' the Province list follows the chosen countries.'+(STATUS_ON?' Product status has no default: with nothing picked every line counts, as in the email.':'')],
     // Only when the filter is on offer. Every channel's AM proc (PNP's #ValidProducts; SAMS since CHANGE 2026-09-23)
     // drops REMOVE / INCORRECT VENDOR lines (channel or product status) before counting, so they can never be an
     // option — said here, or their absence reads as "none of those".
-    STATUS_ON?['Product status','The product’s <b>channel status</b>: the status of the article in this channel in the ClientMaster product links — for example ACTIVE or DISCONTINUED. “(not set)” means no status is recorded'+(CHANNEL==='pnp'?'':' or the article has no product link')+'. <b>Today’s</b> status is applied to every period, including 30 days ago, so a line discontinued last week is filtered as discontinued on every date shown. Picking a status re-counts the cards and every table from the flagged lines of that status, so active lines and base are not available (“—”) and “sites” means sites with a flagged line of that status.'+' Lines whose status is REMOVE or INCORRECT VENDOR (in this channel, or on the product itself) never appear in this report: they are excluded before anything is counted.']:null,
+    STATUS_ON?['Product status','The product’s <b>channel status</b>: the status of the article in this channel in the ClientMaster product links — for example ACTIVE or DISCONTINUED. “(not set)” means no status is recorded'+(CHANNEL==='pnp'?'':' or the article has no product link')+'. <b>Today’s</b> status is applied to every period, including 30 days ago, so a line discontinued last week is filtered as discontinued on every date shown. '+(SS_ON?'Picking a status re-counts every figure — the cards, active lines, base and every table — for the lines of that status; “sites” then means sites with a line of that status, and the product tables list its flagged lines.':'Picking a status re-counts the cards and every table from the flagged lines of that status, so active lines and base are not available (“—”) and “sites” means sites with a flagged line of that status.')+' Lines whose status is REMOVE or INCORRECT VENDOR (in this channel, or on the product itself) never appear in this report: they are excluded before anything is counted.']:null,
     ['Tabs',esc(TABS.map(function(t){return t.t;}).join(', '))+'. Each KPI tab lists the most affected sites and products for that KPI, with the colour on the headline column only.'],
     CLIENT_MODE?null:['Rep &amp; Last visited','Taken from the store reports ARIA has sent (each store gets its report on its visit day), so “last visited” ≈ the date of the most recent store report and the rep is whoever received it. Blank for a store ARIA has never sent a report for.'],
     ['Flagged products','A product is listed when at least one of its article × site lines had a problem on at least one of the dates this report compares — '+CMP_DATES+'.'+(CLIENT_MODE?'':' The Site × Product tab lists those same lines.')+' So a line that has since been fixed stays in, with 0 on the '+HEAD_LAB.toLowerCase()+' date: that is how an improvement shows green. Lines that were healthy on every one of those dates are not shown. The “products flagged in any period” count in the header is this same list, before any filter.'],
