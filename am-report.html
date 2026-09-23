@@ -227,7 +227,7 @@
   function arrow(c,b){ if(b==null) return ''; var d=Math.round(c)-Math.round(b); if(d===0) return '<span class="arrow flat">=</span>'; return '<span class="arrow">'+(d<0?'▼':'▲')+nf(Math.abs(d))+'</span>'; }
   function pk(o,key){ return o?(o[key]||0):null; }   // period value; null = that period is missing
 
-  var state={tab:'overview', country:[], sub:[], profile:[], province:[], store:[], rep:[], client:[]};
+  var state={tab:'overview', country:[], sub:[], profile:[], province:[], store:[], rep:[], client:[], status:[]};
 
   // ---------- re-slicing engine: everything derives from the base grains + active filters ----------
   // SITES row = [code, name, profile, province, country, subchannel, rep, lastVisited]. s[5] (sub-channel) is
@@ -238,16 +238,67 @@
   // picked values, empty = all. inSel = no picks OR value picked.
   // Period arrays: sc row = [site, client, cur, prev, wk, mo?]; ps row = [site, product, client, cur, prev, wk, mo?].
   // The trailing 30-day array is appended by the new engine and absent on the old one.
+  // products[k] = [article, description, status?]. status is the CHANNEL status (ClientMaster tblProductLinks.
+  // [Channel Product Status]), normalised by the proc — the ONE place that rule lives, so it is only trimmed here.
+  // The engine interns products by (article, status), so an entry has one status. An old engine sends 2-element
+  // entries and a SAMS line with no link row sends null: absent, null and '' are ONE value, '' = "(not set)" —
+  // otherwise "(not set)" splits in two and picking it silently drops half the unset lines.
+  var PSTAT=PROD.map(function(p){ var v=p&&p.length>2?p[2]:null; return v==null?'':String(v).trim(); });
+  function pStat(pi){ return PSTAT[pi]||''; }
   function inSel(sel,v){ return !sel.length || sel.indexOf(v==null?'':v)>=0; }
   function sPass(s){
     return inSel(state.country,s[4]) && inSel(state.sub,s[5]||'') && inSel(state.profile,s[2])
         && inSel(state.province,s[3]) && inSel(state.store,s[0]) && inSel(state.rep,s[6]||''); }
   function scPass(r){ return sPass(SITES[r[0]]) && inSel(state.client, CLIENT_N[r[1]]); }
-  function psPass(r){ return sPass(SITES[r[0]]) && inSel(state.client, CLIENT_N[r[2]]); }
+  // status is a PRODUCT attribute: only ps can be tested for it. sc has no product dimension — see context().
+  function psPass(r){ return sPass(SITES[r[0]]) && inSel(state.client, CLIENT_N[r[2]]) && inSel(state.status, pStat(r[1])); }
   function filteredSC(){ return SC.filter(scPass); }
   function filteredPS(){ return PS.filter(psPass); }
   function addArr(acc,a){ for(var i=0;i<acc.length;i++) acc[i]+=(a[i]||0); }
   function zero(n){ var z=[]; for(var i=0;i<n;i++) z.push(0); return z; }
+
+  // A ps row standing in for an sc row (context(), status picked). ps metric arrays are in KPS order, sc arrays in
+  // KSC order, and they part after the shared five: KPS[5] is 'lost', KSC[5] is 'new'. So the arrays are re-mapped
+  // BY NAME — passed through as-is, 'lost' would land in 'new' and 'lost' itself read 0. A KSC-only key (new, action,
+  // active, base) has no ps value and gets null; sumSC recounts 'sites' itself.
+  var PS2SC=KSC.map(function(k){ return KPS.indexOf(k); });
+  var KSC_NA=KSC.filter(function(k){ return KPS.indexOf(k)<0 && k!=='sites'; });
+  function psArrAsSC(a){ return a?PS2SC.map(function(j){ return j<0?null:(a[j]||0); }):a; }
+  function psAsSC(r){ return [r[0],r[2],psArrAsSC(r[3]),psArrAsSC(r[4]),psArrAsSC(r[5]),psArrAsSC(r[6])]; }
+  // Picking a status re-counts the cards and every sc-derived table from ps. That is exact only while each (site,
+  // client)'s five KPIs summed over its ps lines equal its sc row. It holds by construction — PRODUCTSITE takes
+  // every line with a problem in ANY period (#ProblemKeys), per client — but only while the proc keeps both halves:
+  // a proc still on MAX(ClientName) folds two clients' lines at a shared (article, site) into one (MASSBUILD TOPLINE
+  // TOOLS and USABCO share two articles). So it is CHECKED, on every present period, not assumed: if it fails the
+  // filter is not offered at all, because a status pick that silently disagrees with the unfiltered cards is worse
+  // than no filter. Returns null when it holds, else the first miss.
+  function statusGuard(){
+    var F5=['oos','low','phantom','neg','disc'];
+    var iS=F5.map(function(k){ return KSC.indexOf(k); }), iP=F5.map(function(k){ return KPS.indexOf(k); });
+    if(iS.indexOf(-1)>=0||iP.indexOf(-1)>=0) return 'KSC/KPS lack one of '+F5.join('/');
+    // [sc column, ps column, name]; an absent period is skipped — comparing it as zeros would prove nothing
+    var per=[[2,3,'current']].concat(HASP?[[3,4,'previous']]:[],HASW?[[4,5,'week ago']]:[],HAS30?[[5,6,'30 days ago']]:[]);
+    var acc=Object.create(null);
+    function add(key,a,ix,sgn,off){ if(!a) return; var t=acc[key]||(acc[key]=zero(per.length*5)); for(var q=0;q<5;q++) t[off+q]+=sgn*(a[ix[q]]||0); }
+    SC.forEach(function(r){ var key=r[0]+'|'+r[1]; per.forEach(function(p,n){ add(key,r[p[0]],iS,1,n*5); }); });
+    PS.forEach(function(r){ var key=r[0]+'|'+r[2]; per.forEach(function(p,n){ add(key,r[p[1]],iP,-1,n*5); }); });
+    for(var key in acc){ var t=acc[key]; for(var i=0;i<t.length;i++) if(Math.round(t[i])!==0){ var ks=key.split('|'), s=SITES[ks[0]];
+      return 'ps and sc disagree at site '+(s?s[0]:ks[0])+' / client '+(CLIENT_N[ks[1]]||ks[1])+' ('+F5[i%5]+', '+per[Math.floor(i/5)][2]+': sc '+(t[i]>0?'more':'fewer')+' by '+Math.abs(Math.round(t[i]))+')'; } }
+    return null;
+  }
+  // The Product status filter's options, computed ONCE: msSummary calls opts() on every refresh, and this is a pass
+  // over every ps row. Only statuses a flagged line carries. Fewer than 2 -> [] -> not rendered (hideIfEmpty) and
+  // out of FILTER_NAMES: one option filters nothing, and it is what an old engine, a SAMS proc not yet applied
+  // (every status null) and a single-status client all produce. "(not set)" sorts last.
+  var STATUS_OPTS=(function(){
+    var seen=Object.create(null),vs=[]; for(var i=0;i<PS.length;i++){ var v=pStat(PS[i][1]); if(!(v in seen)){ seen[v]=1; vs.push(v); } }
+    if(vs.length<2) return [];
+    var why=statusGuard(); if(why){ console.warn('Product status filter disabled: '+why+'. The cards could not be re-counted from the flagged lines exactly.'); return []; }
+    vs.sort(function(a,b){ return a===''?1:b===''?-1:a<b?-1:a>b?1:0; });
+    return vs.map(function(v){ return [v, v||'(not set)']; });
+  })();
+  var STATUS_ON=STATUS_OPTS.length>0;
+  function blankNA(g){ [g.cur,g.prev,g.wk,g.mo].forEach(function(x){ if(x) KSC_NA.forEach(function(k){ x[k]=null; }); }); }
 
   // sum a list of sc rows -> {cur,prev,wk,mo}; a period that is missing for the whole run is null, never zeros.
   // Within a present 30-day period a row without its array is a GENUINE zero (the proc emits DAY30AGO only when
@@ -281,7 +332,7 @@
     return Object.keys(by).map(function(k){
       var grp=by[k],c=zero(KPS.length),p=zero(KPS.length),w=zero(KPS.length),m=zero(KPS.length),seen={},n=0;
       for(var i=0;i<grp.length;i++){ var r=grp[i]; addArr(c,r[3]); addArr(p,r[4]||[]); addArr(w,r[5]||[]); addArr(m,r[6]||[]); if(!seen[r[0]]){seen[r[0]]=1;n++;} }
-      var P=PROD[k]; var o={code:P[0],name:P[1],cur:objPS(c),prev:HASP?objPS(p):null,wk:HASW?objPS(w):null,mo:HAS30?objPS(m):null};
+      var P=PROD[k]; var o={code:P[0],name:P[1],status:pStat(k),cur:objPS(c),prev:HASP?objPS(p):null,wk:HASW?objPS(w):null,mo:HAS30?objPS(m):null};
       [o.cur,o.prev,o.wk,o.mo].forEach(function(x){ if(x) x.sites=n; }); return o;
     });
   }
@@ -293,12 +344,22 @@
     if(state.province.length)a.push(state.province.join(', '));
     if(state.store.length)a.push(state.store.length+' store'+(state.store.length===1?'':'s'));
     if(state.rep.length)a.push(state.rep.map(prettyRep).join(', '));
-    return (a.length?a.join(' · '):CLIENT_MODE?'All sites':'Whole portfolio')+' ('+nf(n)+' sites)'; }
+    if(state.status.length)a.push('Status: '+state.status.map(function(v){return v||'(not set)';}).join(', '));
+    // under a status pick n counts the ps-derived rows' sites (context()): sites with a flagged line, not all sites
+    return (a.length?a.join(' · '):CLIENT_MODE?'All sites':'Whole portfolio')+' ('+nf(n)+' sites'+(state.status.length?' with a flagged line':'')+')'; }
 
   var CX={};
+  // With a Product status picked sc cannot follow it (SITECLIENT has no product dimension), so the cards and the
+  // province / profile / client / site rollups are re-summed from the filtered ps lines instead — exact for the
+  // five KPIs, see statusGuard. What ps cannot carry is blanked to null so it prints "—", never a false 0: active
+  // lines and base count every line, flagged or not. No status picked -> the sc path exactly as before, which is
+  // also what the email sums (AmEmailBuilder), so the unfiltered page keeps matching it.
   function context(){
-    var scR=filteredSC(), agg=sumSC(scR);
-    return {agg:agg, province:rollupProvince(scR), profile:rollupProfile(scR), clients:rollupClients(scR), sites:rollupSites(scR), products:rollupProducts(filteredPS()), label:lensLabel(agg.cur.sites)};
+    var statOn=state.status.length>0, psR=filteredPS();
+    var scR=statOn?psR.map(psAsSC):filteredSC(), agg=sumSC(scR);
+    var o={agg:agg, province:rollupProvince(scR), profile:rollupProfile(scR), clients:rollupClients(scR), sites:rollupSites(scR), products:rollupProducts(psR), statOn:statOn};
+    if(statOn) [[agg],o.province,o.profile,o.clients,o.sites].forEach(function(l){ l.forEach(blankNA); });
+    o.label=lensLabel(agg.cur.sites); return o;
   }
 
   // ---------- header / filters (once) ----------
@@ -337,7 +398,9 @@
   function distinctS(fn){ return Array.from(new Set(SITES.map(fn))).filter(function(v){return v!=null&&v!=='';}); }
   // Every filter is a uniform multi-select: search box + Select all / Clear + checkbox list. opts() -> [value,
   // label] pairs. Province opts follow the Country picks; Sub-channel/Rep hide when empty; Rep and Client hide on a
-  // client report (Rep is portfolio-only data — see the SITES note above).
+  // client report (Rep is portfolio-only data — see the SITES note above). Product status hides below 2 options
+  // (STATUS_OPTS) and shows on a client report too: the statuses are the client's own products'. It has NO default
+  // pick — the email sums every line, and the unfiltered page must keep matching it.
   var FILTERS=[
     {key:'country',  label:'Country',      opts:function(){return distinctS(function(s){return s[4];}).sort().map(function(v){return [v,v];});}},
     {key:'sub',      label:'Sub-channel',  hideIfEmpty:true, opts:function(){return distinctS(function(s){return s[5];}).sort().map(function(v){return [v,v];});}},
@@ -345,7 +408,8 @@
     {key:'province', label:'Province',     opts:function(){ var cs=state.country; return Array.from(new Set(SITES.filter(function(s){return !cs.length||cs.indexOf(s[4])>=0;}).map(function(s){return s[3];}))).filter(Boolean).sort().map(function(v){return [v,v];}); }},
     {key:'store',    label:'Store',        opts:function(){ return SITES.map(function(s){return [s[0], s[0]+(s[1]?' — '+s[1]:'')];}).sort(function(a,b){return a[0]<b[0]?-1:a[0]>b[0]?1:0;}); }},
     {key:'rep',      label:'Rep',          hideIfEmpty:true, hideInClientMode:true, opts:function(){ return distinctS(function(s){return s[6];}).sort().map(function(v){return [v, prettyRep(v)];}); }},
-    {key:'client',   label:'Client',       hideInClientMode:true, opts:function(){ return CLIENT_N.slice().sort().map(function(v){return [v,v];}); }}
+    {key:'client',   label:'Client',       hideInClientMode:true, opts:function(){ return CLIENT_N.slice().sort().map(function(v){return [v,v];}); }},
+    {key:'status',   label:'Product status', hideIfEmpty:true, opts:function(){ return STATUS_OPTS; }}
   ];
   function msSummary(f){ var sel=state[f.key]; if(!sel.length) return 'All'; if(sel.length===1){ var o=f.opts().filter(function(x){return x[0]===sel[0];})[0]; return o?o[1]:sel[0]; } return sel.length+' selected'; }
   function buildOneFilter(f){
@@ -399,9 +463,14 @@
       cmpRow(PREV_LAB,meta.previous,HASP,c,p)+cmpRow('Same day last week',meta.weekago,HASW,c,w)+cmpRow('30 days ago',meta.day30ago,HAS30,c,m)+'</div>';
   }
   function cardsHTML(src){ return '<div class="kcards">'+KPIS.map(function(kp){return cardHTML(src,kp[0],kp[1]);}).join('')+'</div>'; }
+  // nd, not nf, for a metric that can be unavailable (null under a status pick — see context()): nf(null) is "0",
+  // and "0 active lines" is a false number where the true answer is "not known".
+  function nd(x){ return x==null?'—':nf(x); }
   function ctxHTML(src){
-    return '<div class="ctxline"><b>'+nf(src.cur.active)+'</b> active lines &nbsp;&middot;&nbsp; <b>'+nf(src.cur.sites)+'</b> sites'+
-      ' &nbsp;&middot;&nbsp; base <b>'+nf(src.cur.base)+'</b> site-article lines</div>';
+    var on=CX.statOn;
+    return '<div class="ctxline"><b>'+nd(src.cur.active)+'</b> active lines &nbsp;&middot;&nbsp; <b>'+nf(src.cur.sites)+'</b> '+(on?'sites with a flagged line':'sites')+
+      ' &nbsp;&middot;&nbsp; base <b>'+nd(src.cur.base)+'</b> site-article lines'+
+      (on?'<br><span class="nm2">A product status is picked, so everything here counts only the flagged lines of that status. Active lines and base cover every line, flagged or not, so they are not available (“—”).</span>':'')+'</div>';
   }
 
   // ---------- generic table ----------
@@ -437,8 +506,10 @@
   }
 
   var KPICOLS=[kpiCol('oos','OOS'),kpiCol('low','Low'),kpiCol('phantom','Phantom'),kpiCol('neg','Neg'),kpiCol('disc','Disc')];
+  // Under a status pick these rows come from ps, so Sites counts sites with a flagged line of that status — said in
+  // the header's second line (.sub), never the label, which is the key colIndex sorts by.
   function namedCols(label){ return [{label:label,l:true,get:function(e){return '<span class="code">'+esc(e.name)+'</span>';},sort:function(e){return e.name;}},
-    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
+    {label:'Sites',sub:CX.statOn?'with a flagged line':null,get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
   // Rep and Last visited are PORTFOLIO-only (D5): the client payload no longer carries them, so on a client report
   // the columns are omitted, not shown blank — an empty "Rep" column still tells a client that reps exist.
   function siteCols(){ return [{label:'Site',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
@@ -447,9 +518,14 @@
     CLIENT_MODE?null:{label:'Last visited',l:true,get:function(e){return e.last?pdate(e.last):'—';},sort:function(e){return e.last||'';}},
     {label:'Province',l:true,get:function(e){return '<span class="nm2">'+esc(e.province||'—')+'</span>';},sort:function(e){return e.province||'';}},
     {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}}].filter(Boolean).concat(KPICOLS); }
+  // Only while the Product status filter is on offer, so a payload without statuses keeps exactly the columns it
+  // always had. Every product table carries it (By Product, Site × Product, the KPI tabs); the sorts find their
+  // column by LABEL through colIndex, so the extra column shifts no sort.
+  function statusCol(){ return STATUS_ON?{label:'Status',l:true,get:function(e){return e.status?'<span class="pill">'+esc(e.status)+'</span>':'<span class="nm2">(not set)</span>';},sort:function(e){return e.status||'';}}:null; }
   function productCols(){ return [{label:'Article',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
     {label:'Description',l:true,get:function(e){return esc(e.name);},sort:function(e){return e.name;}},
-    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(KPICOLS); }
+    statusCol(),
+    {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].filter(Boolean).concat(KPICOLS); }
 
   function elH2(t,sub){ var d=document.createElement('div'); d.className='h2'; d.innerHTML=esc(t)+(sub?' <span class="sub">'+esc(sub)+'</span>':''); return d; }
   // A label miss falls back to column 0 — usually a name — so a "Most affected" table silently lists the
@@ -468,6 +544,7 @@
       '<span class="sw" style="background:var(--mute-2)"></span><b>Grey</b> = no data for 30 days ago. '+
       'The same rule colours the five KPI columns in the tables on '+esc(CHIP_TABS)+'. On each KPI tab only the card and the <b>'+HEAD_LAB.toLowerCase()+'</b> column are coloured; the older periods beside it are plain numbers. The arrows are not coloured: a card can be green (fewer than a month ago) with a ▲ against the day before. '+
       '<br><br>The <b>filters</b> above ('+esc(FILTER_NAMES.join(' · '))+') re-slice everything — cards and every table — live, and each takes <b>several picks</b>.'+(hasSA?' Country defaults to South Africa.':'')+
+      (STATUS_ON?' <b>Product status</b> re-counts from the flagged lines alone: while a status is picked, active lines and base show “—” and “sites” means sites with a flagged line of that status.':'')+
       ' The “Most affected” tables on this page are ranked by out of stock; on each KPI tab they are ranked by that KPI’s '+HEAD_LAB.toLowerCase()+' number. Tap the <b>i</b> on any card for what it means.</div></details>';
     var el=document.createElement('div'); el.innerHTML='<div class="h2">'+(CLIENT_MODE?'Client KPIs':'Portfolio KPIs')+' <span class="sub">'+esc(CX.label)+'</span></div>'+w+'<div style="height:12px"></div>'+cardsHTML(s)+ctxHTML(s);
     el.appendChild(elH2('Most affected provinces','by out of stock'));
@@ -484,8 +561,10 @@
     el.appendChild(table(CX.products.slice(), productCols(), {sort:colIndex(productCols(),'OOS'),limit:MOST}));
     return el;
   }
-  function paneClients(){ var el=document.createElement('div'); el.appendChild(elH2('Clients','('+CX.clients.length+')')); el.appendChild(table(CX.clients.slice(),namedCols('Client account'),{sort:colIndex(namedCols('Client account'),'OOS'),search:'Search client',searchKeys:['name']})); return el; }
-  function paneSites(){ var el=document.createElement('div'); el.appendChild(elH2('Sites','('+CX.sites.length+')')); el.appendChild(table(CX.sites.slice(),siteCols(),{sort:colIndex(siteCols(),'OOS'),search:'Search site code or name',searchKeys:['code','name']})); return el; }
+  // under a status pick only rows with a flagged line of that status exist (context()), so the count says so
+  function flaggedN(n){ return '('+n+(CX.statOn?' with a flagged line':'')+')'; }
+  function paneClients(){ var el=document.createElement('div'); el.appendChild(elH2('Clients',flaggedN(CX.clients.length))); el.appendChild(table(CX.clients.slice(),namedCols('Client account'),{sort:colIndex(namedCols('Client account'),'OOS'),search:'Search client',searchKeys:['name']})); return el; }
+  function paneSites(){ var el=document.createElement('div'); el.appendChild(elH2('Sites',flaggedN(CX.sites.length))); el.appendChild(table(CX.sites.slice(),siteCols(),{sort:colIndex(siteCols(),'OOS'),search:'Search site code or name',searchKeys:['code','name']})); return el; }
   function paneProducts(){ var el=document.createElement('div'); el.appendChild(elH2('Products','('+CX.products.length+' flagged)')); el.appendChild(table(CX.products.slice(),productCols(),{sort:colIndex(productCols(),'OOS'),search:'Search article or description',searchKeys:['code','name']})); return el; }
   // every flagged site × article line (the PRODUCTSITE grain). Built lazily — only when this tab is open.
   function spCols(){ return [
@@ -494,11 +573,12 @@
     {label:'Province',l:true,get:function(e){return '<span class="nm2">'+esc(e.province||'—')+'</span>';},sort:function(e){return e.province||'';}},
     {label:'Profile',l:true,get:function(e){return '<span class="pill">'+esc(e.profile)+'</span>';},sort:function(e){return e.profile;}},
     {label:'Article',l:true,get:function(e){return '<span class="code">'+esc(e.article)+'</span>';},sort:function(e){return e.article;}},
-    {label:'Description',l:true,get:function(e){return esc(e.desc);},sort:function(e){return e.desc;}}
-  ].concat(KPICOLS); }
+    {label:'Description',l:true,get:function(e){return esc(e.desc);},sort:function(e){return e.desc;}},
+    statusCol()
+  ].filter(Boolean).concat(KPICOLS); }
   var SP_LIMIT=2000;  // cap painted rows on the full report; search/filters reach the rest
   function paneSiteProduct(){
-    var rows=filteredPS().map(function(r){ var s=SITES[r[0]],pr=PROD[r[1]]; return {code:s[0],name:s[1],profile:s[2],province:s[3],article:pr[0],desc:pr[1],
+    var rows=filteredPS().map(function(r){ var s=SITES[r[0]],pr=PROD[r[1]]; return {code:s[0],name:s[1],profile:s[2],province:s[3],article:pr[0],desc:pr[1],status:pStat(r[1]),
       cur:objPS(r[3]),prev:HASP?objPS(r[4]):null,wk:HASW?objPS(r[5]):null,mo:HAS30?objPS(r[6]):null}; });
     var el=document.createElement('div');
     el.appendChild(elH2('Site × Product','('+nf(rows.length)+' flagged lines)'));
@@ -524,7 +604,8 @@
     el.appendChild(table(CX.sites.slice(),sc,{sort:colIndex(sc,HEAD_LAB),limit:50}));
     var pc=[{label:'Article',l:true,get:function(e){return '<span class="code">'+esc(e.code)+'</span>';},sort:function(e){return e.code;}},
             {label:'Description',l:true,get:function(e){return esc(e.name);},sort:function(e){return e.name;}},
-            {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].concat(periodCols(key));
+            statusCol(),
+            {label:'Sites',get:function(e){return nf(e.cur.sites);},sort:function(e){return e.cur.sites;}}].filter(Boolean).concat(periodCols(key));
     el.appendChild(elH2('Most affected products','for '+KLAB[key]));
     el.appendChild(table(CX.products.slice(),pc,{sort:colIndex(pc,HEAD_LAB),limit:50}));
     return el;
@@ -539,7 +620,7 @@
   }
 
   document.getElementById('tabs').addEventListener('click',function(e){var t=e.target.closest('.tab');if(!t)return;state.tab=t.getAttribute('data-tab');document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x===t);});render();});
-  document.getElementById('fClear').addEventListener('click',function(){ state.country=(hasSA?['South Africa']:[]); state.sub=[];state.profile=[];state.province=[];state.store=[];state.rep=[];state.client=[]; buildFilters(); render(); });
+  document.getElementById('fClear').addEventListener('click',function(){ state.country=(hasSA?['South Africa']:[]); state.sub=[];state.profile=[];state.province=[];state.store=[];state.rep=[];state.client=[];state.status=[]; buildFilters(); render(); });
 
   // Entries that are null are skipped: a client report never mentions reps (its payload carries none — D5), and the
   // excluded-vendors entry appears only when the bar at the top does.
@@ -552,9 +633,13 @@
     ['Phantom','Active line with stock but no sale in 60+ days — likely not on the shelf.'],
     ['Negative SOH','On-hand below 0 — impossible figure; the shelf is counted so the system can be corrected.'],
     ['Discontinued with SOH','Non-active line still holding stock — clear or return it.'],
-    ['Active lines &amp; base','Active lines are site-article lines on status 04. The base is every site-article combination in scope — all statuses, the full range. Both are shown on the line under the cards for context and re-compute as you filter.'],
+    ['Active lines &amp; base','Active lines are site-article lines on status 04. The base is every site-article combination in scope — all statuses, the full range. Both are shown on the line under the cards for context and re-compute as you filter.'+(STATUS_ON?' Neither is available while a Product status is picked (shown as “—”): both count every line, flagged or not, and a status is only carried for the flagged ones.':'')],
     ['Most affected','On the Overview the “Most affected” tables are ranked by out of stock, most first. On each KPI tab they are ranked by that KPI’s '+HEAD_LAB.toLowerCase()+' number, most first. Click any column heading to re-sort.'],
-    ['Filters',esc(FILTER_NAMES.join(', '))+' re-slice everything live — the cards and every table. Each filter is multi-select — tick several.'+(hasSA?' Country defaults to South Africa;':'')+' the Province list follows the chosen countries.'],
+    ['Filters',esc(FILTER_NAMES.join(', '))+' re-slice everything live — the cards and every table. Each filter is multi-select — tick several.'+(hasSA?' Country defaults to South Africa;':'')+' the Province list follows the chosen countries.'+(STATUS_ON?' Product status has no default: with nothing picked every line counts, as in the email.':'')],
+    // Only when the filter is on offer. Every channel's AM proc (PNP's #ValidProducts; SAMS since CHANGE 2026-09-23)
+    // drops REMOVE / INCORRECT VENDOR lines (channel or product status) before counting, so they can never be an
+    // option — said here, or their absence reads as "none of those".
+    STATUS_ON?['Product status','The product’s <b>channel status</b>: the status of the article in this channel in the ClientMaster product links — for example ACTIVE or DISCONTINUED. “(not set)” means no status is recorded'+(CHANNEL==='pnp'?'':' or the article has no product link')+'. <b>Today’s</b> status is applied to every period, including 30 days ago, so a line discontinued last week is filtered as discontinued on every date shown. Picking a status re-counts the cards and every table from the flagged lines of that status, so active lines and base are not available (“—”) and “sites” means sites with a flagged line of that status.'+' Lines whose status is REMOVE or INCORRECT VENDOR (in this channel, or on the product itself) never appear in this report: they are excluded before anything is counted.']:null,
     ['Tabs',esc(TABS.map(function(t){return t.t;}).join(', '))+'. Each KPI tab lists the most affected sites and products for that KPI, with the colour on the headline column only.'],
     CLIENT_MODE?null:['Rep &amp; Last visited','Taken from the store reports ARIA has sent (each store gets its report on its visit day), so “last visited” ≈ the date of the most recent store report and the rep is whoever received it. Blank for a store ARIA has never sent a report for.'],
     ['Flagged products','A product is listed when at least one of its article × site lines had a problem on at least one of the dates this report compares — '+CMP_DATES+'.'+(CLIENT_MODE?'':' The Site × Product tab lists those same lines.')+' So a line that has since been fixed stays in, with 0 on the '+HEAD_LAB.toLowerCase()+' date: that is how an improvement shows green. Lines that were healthy on every one of those dates are not shown. The “products flagged in any period” count in the header is this same list, before any filter.'],
