@@ -506,11 +506,14 @@
   // close any open dropdown when clicking outside it
   document.addEventListener('click',function(e){ document.querySelectorAll('#filterSlots .ms[open]').forEach(function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); }); });
   // The filter bar is pinned, so an open list cannot be scrolled into view with the page: cap it to the room left
-  // below it on screen (a phone held sideways has ~200 px), never above the CSS 300 px. 'toggle' does not bubble —
+  // below it on screen (a phone held sideways has ~200 px), never above the CSS 300 px. And keep it on screen
+  // sideways: anchored at its summary's left edge, a list opened from the right of a phone's row ran up to ~110 px
+  // past the edge and let the whole page scroll sideways — shift it left by the overflow. 'toggle' does not bubble —
   // hence the capture flag.
   document.addEventListener('toggle',function(e){ var d=e.target; if(!d.classList||!d.classList.contains('ms')||!d.open) return;
-    var pop=d.querySelector('.ms-pop'); if(!pop) return; pop.style.maxHeight='';
-    var room=window.innerHeight-pop.getBoundingClientRect().top-12; if(room<300) pop.style.maxHeight=Math.max(120,Math.floor(room))+'px'; },true);
+    var pop=d.querySelector('.ms-pop'); if(!pop) return; pop.style.maxHeight=''; pop.style.left='';
+    var pr=pop.getBoundingClientRect(), room=window.innerHeight-pr.top-12; if(room<300) pop.style.maxHeight=Math.max(120,Math.floor(room))+'px';
+    var over=pr.right-(document.documentElement.clientWidth-8); if(over>0) pop.style.left=-Math.min(over,Math.max(0,pr.left-8))+'px'; },true);
 
   // ---------- cards ----------
   // Headline big, labelled with its date; under it the three comparison points, each with its own date, value and
