@@ -30,18 +30,22 @@
   .ibtn{border:0;background:rgba(255,255,255,.16);color:#fff;height:36px;padding:0 14px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;}
 
   /* The tabs and the filter bar stay on screen while the page scrolls (2026-09-28): the tabs pinned at the top, the
-     filter bar pinned under them at --tabs-h (measured by the script — the tab row's height). Two sticky siblings,
-     not one wrapper, so a small screen can let the filters scroll away and keep only the tabs: there the bar wraps to
-     several rows and would cover a third of the page. The shadow appears only once they are stuck (.stuck, set on
-     scroll). The multi-select pop-ups live inside the filter bar and open downward, so they need no z-index of
-     their own beyond it. */
+     filter bar pinned under them at --tabs-h (measured by the script — the tab row's height). On every screen size:
+     phones too, by Mark's call (2026-09-28), where the bar wraps to several rows — so it is packed tighter there (the
+     media rule below) and an open list is capped to the room left under it (the 'toggle' handler in the script).
+     The shadow appears only once they are stuck (.stuck, set on scroll). The multi-select pop-ups live inside the
+     filter bar and open downward, so they need no z-index of their own beyond it. */
   .tabs{display:flex;gap:2px;padding:0 14px;background:var(--blue-deep);overflow-x:auto;position:sticky;top:0;z-index:32;}
   .tab{border:0;background:none;color:rgba(255,255,255,.72);font-family:inherit;font-size:13px;font-weight:600;padding:11px 13px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
   .tab.active{color:#fff;border-bottom-color:#fff;}
 
   .filterbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px 24px;background:var(--card);border-bottom:.5px solid var(--line);position:sticky;top:var(--tabs-h,44px);z-index:31;}
   .wrap.stuck .filterbar{box-shadow:0 3px 10px rgba(0,0,0,.07);}
-  @media (max-width:700px),(max-height:560px){ .filterbar{position:static;} .wrap.stuck .tabs{box-shadow:0 3px 10px rgba(0,0,0,.12);} }
+  @media (max-width:700px),(max-height:560px){
+    .filterbar{gap:6px 8px;padding:7px 12px;}
+    .ms>summary{height:30px;font-size:12px;padding:0 8px;} .ms>summary .msv{max-width:110px;} .ms-pop{top:34px;}
+    .lens{font-size:11px;}
+  }
   .filterbar label{font-size:12px;color:var(--mute);font-weight:600;}
   .filterbar select{height:34px;border:.5px solid var(--line);border-radius:8px;background:var(--paper);font-family:inherit;font-size:13px;color:var(--ink);padding:0 8px;margin-left:6px;max-width:210px;}
   .filterbar .clear{font-size:12px;color:var(--blue);cursor:pointer;background:none;border:0;font-family:inherit;}
@@ -501,6 +505,12 @@
   var FILTER_NAMES=FILTERS.filter(function(f){ return !(f.hideInClientMode&&CLIENT_MODE) && !(f.hideIfEmpty&&!f.opts().length); }).map(function(f){return f.label;});
   // close any open dropdown when clicking outside it
   document.addEventListener('click',function(e){ document.querySelectorAll('#filterSlots .ms[open]').forEach(function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); }); });
+  // The filter bar is pinned, so an open list cannot be scrolled into view with the page: cap it to the room left
+  // below it on screen (a phone held sideways has ~200 px), never above the CSS 300 px. 'toggle' does not bubble —
+  // hence the capture flag.
+  document.addEventListener('toggle',function(e){ var d=e.target; if(!d.classList||!d.classList.contains('ms')||!d.open) return;
+    var pop=d.querySelector('.ms-pop'); if(!pop) return; pop.style.maxHeight='';
+    var room=window.innerHeight-pop.getBoundingClientRect().top-12; if(room<300) pop.style.maxHeight=Math.max(120,Math.floor(room))+'px'; },true);
 
   // ---------- cards ----------
   // Headline big, labelled with its date; under it the three comparison points, each with its own date, value and
