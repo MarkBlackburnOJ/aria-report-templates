@@ -29,11 +29,19 @@
   header .meta{font-size:12.5px;color:rgba(255,255,255,.8);margin-top:5px;}
   .ibtn{border:0;background:rgba(255,255,255,.16);color:#fff;height:36px;padding:0 14px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;}
 
-  .tabs{display:flex;gap:2px;padding:0 14px;background:var(--blue-deep);overflow-x:auto;}
+  /* The tabs and the filter bar stay on screen while the page scrolls (2026-09-28): the tabs pinned at the top, the
+     filter bar pinned under them at --tabs-h (measured by the script — the tab row's height). Two sticky siblings,
+     not one wrapper, so a small screen can let the filters scroll away and keep only the tabs: there the bar wraps to
+     several rows and would cover a third of the page. The shadow appears only once they are stuck (.stuck, set on
+     scroll). The multi-select pop-ups live inside the filter bar and open downward, so they need no z-index of
+     their own beyond it. */
+  .tabs{display:flex;gap:2px;padding:0 14px;background:var(--blue-deep);overflow-x:auto;position:sticky;top:0;z-index:32;}
   .tab{border:0;background:none;color:rgba(255,255,255,.72);font-family:inherit;font-size:13px;font-weight:600;padding:11px 13px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
   .tab.active{color:#fff;border-bottom-color:#fff;}
 
-  .filterbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px 24px;background:var(--card);border-bottom:.5px solid var(--line);}
+  .filterbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:12px 24px;background:var(--card);border-bottom:.5px solid var(--line);position:sticky;top:var(--tabs-h,44px);z-index:31;}
+  .wrap.stuck .filterbar{box-shadow:0 3px 10px rgba(0,0,0,.07);}
+  @media (max-width:700px),(max-height:560px){ .filterbar{position:static;} .wrap.stuck .tabs{box-shadow:0 3px 10px rgba(0,0,0,.12);} }
   .filterbar label{font-size:12px;color:var(--mute);font-weight:600;}
   .filterbar select{height:34px;border:.5px solid var(--line);border-radius:8px;background:var(--paper);font-family:inherit;font-size:13px;color:var(--ink);padding:0 8px;margin-left:6px;max-width:210px;}
   .filterbar .clear{font-size:12px;color:var(--blue);cursor:pointer;background:none;border:0;font-family:inherit;}
@@ -323,14 +331,16 @@
     console.warn('Product status: per-status line counts not used: '+why+'. A status pick re-counts from the flagged lines instead (active lines and base show “—”).'); return false; })();
   // The Product status filter's options, computed ONCE: msSummary calls opts() on every refresh, and this is a pass
   // over every ps (and ss) row. The statuses a flagged line carries, plus — with ss in use — those only healthy lines
-  // carry (a pick then shows zero problems and the real active lines / base). Fewer than 2 -> [] -> not rendered
-  // (hideIfEmpty) and out of FILTER_NAMES: one option filters nothing, and it is what an old engine, a SAMS proc not
-  // yet applied (every status null) and a single-status client all produce. "(not set)" sorts last.
+  // carry (a pick then shows zero problems and the real active lines / base). Offered whenever at least ONE line has
+  // a real status, even if it is the only option (Mark, 2026-09-28): an all-ACTIVE client — most of them — then shows
+  // the filter and the Status column, which says "every line here is ACTIVE" rather than looking undeployed. Only
+  // "no status anywhere" -> [] -> not rendered (hideIfEmpty) and out of FILTER_NAMES: what an old engine or a proc
+  // that does not send the column produces, where a lone "(not set)" would say nothing. "(not set)" sorts last.
   var STATUS_OPTS=(function(){
     var seen=Object.create(null),vs=[]; function see(v){ if(!(v in seen)){ seen[v]=1; vs.push(v); } }
     for(var i=0;i<PS.length;i++) see(pStat(PS[i][1]));
     if(SS_ON) for(var j=0;j<SS.length;j++) see(SS[j][6]);
-    if(vs.length<2) return [];
+    if(!vs.some(function(v){ return v!==''; })) return [];
     var why=statusGuard(); if(why){ console.warn('Product status filter disabled: '+why+'. The cards could not be re-counted from the flagged lines exactly.'); return []; }
     vs.sort(function(a,b){ return a===''?1:b===''?-1:a<b?-1:a>b?1:0; });
     return vs.map(function(v){ return [v, v||'(not set)']; });
@@ -441,8 +451,8 @@
   function distinctS(fn){ return Array.from(new Set(SITES.map(fn))).filter(function(v){return v!=null&&v!=='';}); }
   // Every filter is a uniform multi-select: search box + Select all / Clear + checkbox list. opts() -> [value,
   // label] pairs. Province opts follow the Country picks; Sub-channel/Rep hide when empty; Rep and Client hide on a
-  // client report (Rep is portfolio-only data — see the SITES note above). Product status hides below 2 options
-  // (STATUS_OPTS) and shows on a client report too: the statuses are the client's own products'. It has NO default
+  // client report (Rep is portfolio-only data — see the SITES note above). Product status hides only when no line has
+  // a status at all (STATUS_OPTS) and shows on a client report too: the statuses are the client's own products'. It has NO default
   // pick — the email sums every line, and the unfiltered page must keep matching it.
   var FILTERS=[
     {key:'country',  label:'Country',      opts:function(){return distinctS(function(s){return s[4];}).sort().map(function(v){return [v,v];});}},
@@ -664,7 +674,19 @@
     document.getElementById('lens').textContent=CX.label;
   }
 
-  document.getElementById('tabs').addEventListener('click',function(e){var t=e.target.closest('.tab');if(!t)return;state.tab=t.getAttribute('data-tab');document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x===t);});render();});
+  document.getElementById('tabs').addEventListener('click',function(e){var t=e.target.closest('.tab');if(!t)return;state.tab=t.getAttribute('data-tab');document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x===t);});render();toPaneTop();});
+
+  // Pinned tabs + filter bar (CSS .tabs / .filterbar). A tab clicked from far down the page would otherwise open the
+  // new tab at the old scroll position — mid-table, or past its end — so the new tab's top is brought up to just
+  // under the bars. Never scrolls down: at the top of the page nothing moves.
+  var TABS_EL=document.getElementById('tabs'), FBAR=document.getElementById('filterbar'), WRAP=document.querySelector('.wrap');
+  function barsBottom(){ return (getComputedStyle(FBAR).position==='sticky'?FBAR:TABS_EL).getBoundingClientRect().bottom; }
+  function toPaneTop(){ var d=document.getElementById('pane').getBoundingClientRect().top-barsBottom(); if(d<0) window.scrollBy(0,d); }
+  function syncBars(){ document.documentElement.style.setProperty('--tabs-h',TABS_EL.offsetHeight+'px'); }
+  function syncStuck(){ WRAP.classList.toggle('stuck',TABS_EL.getBoundingClientRect().top<=0 && window.scrollY>0); }
+  syncBars(); syncStuck();
+  window.addEventListener('resize',function(){ syncBars(); syncStuck(); });
+  window.addEventListener('scroll',syncStuck,{passive:true});
   document.getElementById('fClear').addEventListener('click',function(){ state.country=(hasSA?['South Africa']:[]); state.sub=[];state.profile=[];state.province=[];state.store=[];state.rep=[];state.client=[];state.status=[]; buildFilters(); render(); });
 
   // Entries that are null are skipped: a client report never mentions reps (its payload carries none — D5), and the
